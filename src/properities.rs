@@ -4,7 +4,7 @@ use crate::speech_api::{
     property_bag_free_string, property_bag_get_string, property_bag_release,
     property_bag_set_string, PropertyId, SPXPROPERTYBAGHANDLE,
 };
-use crate::Result;
+use crate::{Result, SpxHandle, Handle};
 use std::{
     ffi::{CStr, CString},
     os::raw::c_int,
@@ -82,5 +82,11 @@ impl Properties {
 impl Drop for Properties {
     fn drop(&mut self) {
         unsafe { property_bag_release(self.handle) };
+    }
+}
+
+impl SpxHandle for Properties {
+    fn handle(&self) -> Handle {
+        self.handle as Handle
     }
 }

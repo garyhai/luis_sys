@@ -1,20 +1,7 @@
-use crate::speech_api::{
-    speech_config_from_subscription, speech_config_get_property_bag,
-    speech_config_release, PropertyId_SpeechServiceAuthorization_Token,
-    PropertyId_SpeechServiceConnection_EndpointId,
-    PropertyId_SpeechServiceConnection_Key,
-    PropertyId_SpeechServiceConnection_ProxyHostName,
-    PropertyId_SpeechServiceConnection_ProxyPassword,
-    PropertyId_SpeechServiceConnection_ProxyPort,
-    PropertyId_SpeechServiceConnection_ProxyUserName,
-    PropertyId_SpeechServiceConnection_RecoLanguage,
-    PropertyId_SpeechServiceConnection_Region,
-    PropertyId_SpeechServiceResponse_RequestDetailedResultTrueFalse,
-    SPXSPEECHCONFIGHANDLE,
-};
-use crate::{hr, properities::Properties, Result};
+use crate::speech_api::*;
+use crate::{SpxError, SpxHandle, Handle, hr, properities::Properties, Result, audio::AudioConfig};
 
-use std::{ffi::CString, ptr::null_mut};
+use std::{ffi::{CString, CStr}, ptr::null_mut, os::raw::c_char};
 
 pub struct ProxyConfig {
     host_name: String,
@@ -140,3 +127,58 @@ impl Drop for RecognizerConfig {
         unsafe { speech_config_release(self.handle) };
     }
 }
+
+impl SpxHandle for RecognizerConfig {
+    fn handle(&self) -> Handle {
+        self.handle as Handle
+    }
+}
+
+pub struct Recognizer {
+    handle: SPXRECOHANDLE,
+    config: RecognizerConfig,
+    audio: AudioConfig,
+}
+
+impl Recognizer {
+    pub fn new(config: RecognizerConfig, audio: AudioConfig) -> Result<Self> {
+        let handle = null_mut();
+        unsafe {
+            hr(recognizer_create_speech_recognizer_from_config(handle, config.handle(), audio.handle()))?;
+            Ok(Recognizer {handle: *handle, config, audio})
+        }
+    }
+
+    pub fn recognize(&self) -> Result<String> {
+        let hres = null_mut();
+        let rr = null_mut();
+        unsafe {
+            hr(recognizer_recognize_once(self.handle, hres))?;
+            hr(result_get_reason(*hres, rr))?;
+            if *rr == Result_Reason_ResultReason_RecognizedSpeech {
+                let sz = 1024;
+                let mut buf: Vec<c_char> = Vec::with_capacity(sz + 1);
+                let slice = buf.as_mut_slice();
+                let ptr = slice.as_mut_ptr();
+                hr(result_get_text(*hres, ptr, sz as u32))?;
+                let s = CStr::from_ptr(ptr).to_str()?;
+                Ok(String::from(s))
+            } else {
+                Err(SpxError::Unknown)
+            }
+        }
+    }
+}
+
+impl Drop for Recognizer {
+    fn drop(&mut self) {
+        unsafe { recognizer_handle_release(self.handle) };
+    }
+}
+
+impl SpxHandle for Recognizer {
+    fn handle(&self) -> Handle {
+        self.handle as Handle
+    }
+}
+

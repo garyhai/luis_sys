@@ -9,6 +9,8 @@ pub enum SpxError {
     NulError,
     #[fail(display = "invalid UTF-8 string")]
     Utf8Error,
+    #[fail(display = "unknown error")]
+    Unknown,
 }
 
 impl From<ffi::NulError> for SpxError {
@@ -19,6 +21,12 @@ impl From<ffi::NulError> for SpxError {
 
 impl From<ffi::IntoStringError> for SpxError {
     fn from(_err: ffi::IntoStringError) -> Self {
+        SpxError::Utf8Error
+    }
+}
+
+impl From<std::str::Utf8Error> for SpxError {
+    fn from(_err: std::str::Utf8Error) -> Self {
         SpxError::Utf8Error
     }
 }
