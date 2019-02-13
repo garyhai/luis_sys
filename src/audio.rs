@@ -9,14 +9,14 @@ pub struct AudioConfig {
 
 impl AudioConfig {
     pub fn from_wav_file_input(path: &str) -> Result<Self> {
-        let handle = null_mut();
+        let mut handle = null_mut();
         let path = CString::new(path)?;
         unsafe {
             hr(audio_config_create_audio_input_from_wav_file_name(
-                handle,
+                &mut handle,
                 path.as_ptr(),
             ))?;
-            Ok(AudioConfig { handle: *handle })
+            Ok(AudioConfig { handle})
         }
     }
 }
