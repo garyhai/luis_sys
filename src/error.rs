@@ -1,30 +1,31 @@
-pub use failure::{Error, Fail};
+use std::ffi;
+use failure::Fail;
 
-/// Export all enumerations.
-pub use SpxError::*;
-
-/// A set of common errors.
 #[derive(Fail, Debug)]
 pub enum SpxError {
-    /// As std::option::NoneError
-    #[fail(display = "there is nothing")]
-    Nothing,
-    /// As ErrorKind::NotFound
-    #[fail(display = "entity not found")]
-    NotFound,
-    /// As InvalidData and InvalidInput
-    #[fail(display = "invalid data or parameter")]
-    Invalid,
-    /// As ErrorKind::AlreadyExists
-    #[fail(display = "entity already exists")]
-    AlreadyExists,
-    /// Something unknown.
-    #[fail(display = "something unknown")]
-    Unknown,
-    /// Unimplemented method.
-    #[fail(display = "method is not implemented")]
-    Unimplemented,
-    /// Misc error with description.
-    #[fail(display = "{}", _0)]
-    Misc(String),
+    #[fail(display = "speech API return error code: {}", _0)]
+    ApiError(usize),
+    #[fail(display = "an interior nul byte was found")]
+    NulError,
+    #[fail(display = "invalid UTF-8 string")]
+    Utf8Error,
+}
+
+impl From<ffi::NulError> for SpxError {
+    fn from(_err: ffi::NulError) -> Self {
+        SpxError::NulError
+    }
+}
+
+impl From<ffi::IntoStringError> for SpxError {
+    fn from(_err: ffi::IntoStringError) -> Self {
+        SpxError::Utf8Error
+    }
+}
+
+impl From<usize> for SpxError {
+    fn from(code: usize) -> Self {
+        assert!(code != 0);
+        SpxError::ApiError(code)
+    }
 }
