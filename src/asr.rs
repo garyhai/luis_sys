@@ -1,8 +1,10 @@
 use crate::speech_api::{
-    recognizer_create_speech_recognizer_from_config, recognizer_handle_release,
+    recognizer_create_speech_recognizer_from_config,
+    recognizer_handle_is_valid, recognizer_handle_release,
     recognizer_recognize_once, result_get_reason, result_get_text,
     speech_config_from_subscription, speech_config_get_property_bag,
-    speech_config_release, PropertyId_SpeechServiceAuthorization_Token,
+    speech_config_is_handle_valid, speech_config_release, PropertyId,
+    PropertyId_SpeechServiceAuthorization_Token,
     PropertyId_SpeechServiceConnection_EndpointId,
     PropertyId_SpeechServiceConnection_Key,
     PropertyId_SpeechServiceConnection_ProxyHostName,
@@ -16,10 +18,10 @@ use crate::speech_api::{
     SPXSPEECHCONFIGHANDLE,
 };
 use crate::{
-    audio::AudioConfig, hr, properities::Properties, Handle, Result, SpxError,
+    audio::AudioInput, hr, properities::Properties, Handle, Result, SpxError,
     SpxHandle,
 };
-
+use rustc_hash::FxHashMap as Table;
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
@@ -49,7 +51,6 @@ impl RecognizerConfig {
                 subscription.as_ptr(),
                 region.as_ptr(),
             ))?;
-            log::debug!("configed");
             let mut hprops = null_mut();
             hr(speech_config_get_property_bag(handle, &mut hprops))?;
             let props = Properties::new(hprops);
@@ -144,11 +145,23 @@ impl RecognizerConfig {
             &proxy.password,
         )
     }
+
+    pub fn get_by_id(&self, id: PropertyId) -> Result<String> {
+        self.props.get_by_id(id)
+    }
+
+    pub fn put_by_id(&self, id: PropertyId, value: &str) -> Result<()> {
+        self.props.put_by_id(id, value)
+    }
 }
 
 impl Drop for RecognizerConfig {
     fn drop(&mut self) {
-        unsafe { speech_config_release(self.handle) };
+        unsafe {
+            if speech_config_is_handle_valid(self.handle) {
+                speech_config_release(self.handle);
+            }
+        }
     }
 }
 
@@ -161,11 +174,14 @@ impl SpxHandle for RecognizerConfig {
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     config: RecognizerConfig,
-    audio: AudioConfig,
+    audio: AudioInput,
 }
 
 impl Recognizer {
-    pub fn new(config: RecognizerConfig, audio: AudioConfig) -> Result<Self> {
+    pub fn from_config(
+        config: RecognizerConfig,
+        audio: AudioInput,
+    ) -> Result<Self> {
         let mut handle = null_mut();
         unsafe {
             hr(recognizer_create_speech_recognizer_from_config(
@@ -179,6 +195,20 @@ impl Recognizer {
                 audio,
             })
         }
+    }
+
+    pub fn from_subscription(subscription: &str, region: &str) -> Result<Self> {
+        let config = RecognizerConfig::from_subscription(subscription, region)?;
+        let audio = AudioInput::new();
+        Recognizer::from_config(config, audio)
+    }
+
+    pub fn config(&self) -> &RecognizerConfig {
+        &self.config
+    }
+
+    pub fn audio(&self) -> &AudioInput {
+        &self.audio
     }
 
     pub fn recognize(&self) -> Result<String> {
@@ -204,12 +234,83 @@ impl Recognizer {
 
 impl Drop for Recognizer {
     fn drop(&mut self) {
-        unsafe { recognizer_handle_release(self.handle) };
+        unsafe {
+            if recognizer_handle_is_valid(self.handle) {
+                recognizer_handle_release(self.handle);
+            }
+        }
     }
 }
 
 impl SpxHandle for Recognizer {
     fn handle(&self) -> Handle {
         self.handle as Handle
+    }
+}
+
+pub struct Builder {
+    table: Table<PropertyId, String>,
+    audio: String,
+}
+
+impl Builder {
+    pub fn new() -> Self {
+        Builder {
+            table: Table::default(),
+            audio: String::new(),
+        }
+    }
+
+    pub fn subscription_key<T: ToString>(mut self, v: T) -> Self {
+        self.table
+            .insert(PropertyId_SpeechServiceConnection_Key, v.to_string());
+        self
+    }
+
+    pub fn region<T: ToString>(mut self, v: T) -> Self {
+        self.table
+            .insert(PropertyId_SpeechServiceConnection_Region, v.to_string());
+        self
+    }
+
+    pub fn language<T: ToString>(mut self, v: T) -> Self {
+        self.table.insert(
+            PropertyId_SpeechServiceConnection_RecoLanguage,
+            v.to_string(),
+        );
+        self
+    }
+
+    pub fn audio_file_path<T: ToString>(mut self, v: T) -> Self {
+        self.audio = v.to_string();
+        self
+    }
+
+    pub fn create_config(&self) -> Result<RecognizerConfig> {
+        let default = String::from("");
+        let key = self
+            .table
+            .get(&PropertyId_SpeechServiceConnection_Key)
+            .unwrap_or(&default);
+        let region = self
+            .table
+            .get(&PropertyId_SpeechServiceConnection_Region)
+            .unwrap_or(&default);
+        let config =
+            RecognizerConfig::from_subscription(&key, &region)?;
+        for (k, v) in self.table.iter() {
+            config.put_by_id(*k, v)?;
+        }
+        Ok(config)
+    }
+
+    pub fn create_audio(&self) -> Result<AudioInput> {
+        AudioInput::from_wav_file(&self.audio)
+    }
+
+    pub fn create_recognizer(&self) -> Result<Recognizer> {
+        let config = self.create_config()?;
+        let audio = self.create_audio()?;
+        Recognizer::from_config(config, audio)
     }
 }

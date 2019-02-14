@@ -1,10 +1,11 @@
 /*! */
 
 use crate::speech_api::{
-    property_bag_free_string, property_bag_get_string, property_bag_release,
-    property_bag_set_string, PropertyId, SPXPROPERTYBAGHANDLE,
+    property_bag_free_string, property_bag_get_string, property_bag_is_valid,
+    property_bag_release, property_bag_set_string, PropertyId,
+    SPXPROPERTYBAGHANDLE,
 };
-use crate::{Result, SpxHandle, Handle};
+use crate::{Handle, Result, SpxHandle};
 use std::{
     ffi::{CStr, CString},
     os::raw::c_int,
@@ -35,6 +36,7 @@ impl Properties {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_by_name(&self, name: &str) -> Result<String> {
         let name = CString::new(name)?;
         let blank = CString::new("").unwrap();
@@ -64,6 +66,7 @@ impl Properties {
         }
     }
 
+    #[allow(dead_code)]
     pub fn put_by_name(&self, name: &str, value: &str) -> Result<()> {
         let name = CString::new(name)?;
         let value = CString::new(value)?;
@@ -81,7 +84,11 @@ impl Properties {
 
 impl Drop for Properties {
     fn drop(&mut self) {
-        unsafe { property_bag_release(self.handle) };
+        unsafe {
+            if property_bag_is_valid(self.handle) {
+                property_bag_release(self.handle);
+            }
+        }
     }
 }
 

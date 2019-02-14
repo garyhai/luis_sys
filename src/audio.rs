@@ -1,14 +1,20 @@
 use crate::speech_api::*;
-use crate::{hr, Result, SpxHandle, Handle};
+use crate::{hr, Handle, Result, SpxHandle};
 
 use std::{ffi::CString, ptr::null_mut};
 
-pub struct AudioConfig {
+pub struct AudioInput {
     handle: SPXAUDIOCONFIGHANDLE,
 }
 
-impl AudioConfig {
-    pub fn from_wav_file_input(path: &str) -> Result<Self> {
+impl AudioInput {
+    pub fn new() -> Self {
+        AudioInput {
+            handle: null_mut(),
+        }
+    }
+
+    pub fn from_wav_file(path: &str) -> Result<Self> {
         let mut handle = null_mut();
         let path = CString::new(path)?;
         unsafe {
@@ -16,18 +22,22 @@ impl AudioConfig {
                 &mut handle,
                 path.as_ptr(),
             ))?;
-            Ok(AudioConfig { handle})
+            Ok(AudioInput { handle })
         }
     }
 }
 
-impl Drop for AudioConfig {
+impl Drop for AudioInput {
     fn drop(&mut self) {
-        unsafe { audio_config_release(self.handle) };
+        unsafe {
+            if audio_config_is_handle_valid(self.handle) {
+                audio_config_release(self.handle);
+            }
+        }
     }
 }
 
-impl SpxHandle for AudioConfig {
+impl SpxHandle for AudioInput {
     fn handle(&self) -> Handle {
         self.handle as Handle
     }

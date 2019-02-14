@@ -9,6 +9,7 @@ log = "0.4.6"
 env_logger = "0.6.0"
 failure = "0.1.5"
 futures = "0.1.25"
+rustc-hash = "1.0.1"
 
 [build-dependencies]
 bindgen = "0.47.1"
