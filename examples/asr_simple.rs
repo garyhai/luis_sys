@@ -14,7 +14,7 @@ fn main() {
 
 fn recognize_once() -> Result {
     let recognizer = Builder::new()
-        .subscription_key("c5e3fe2700ae4a9592328976e1a33017")
+        .subscription_key("d5504c34dab74874930d3fe9f2925578")
         .region("eastasia")
         .language("zh-CN")
         .audio_file_path("examples/chinese_test.wav")
