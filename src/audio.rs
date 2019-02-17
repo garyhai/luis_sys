@@ -3,6 +3,11 @@ use crate::{hr, Handle, Result, SpxHandle, DeriveSpxHandle};
 
 use std::{ffi::CString, ptr::null_mut};
 
+DeriveSpxHandle!(
+    AudioInput,
+    audio_config_release,
+    audio_config_is_handle_valid
+);
 pub struct AudioInput {
     handle: SPXAUDIOCONFIGHANDLE,
 }
@@ -26,9 +31,3 @@ impl AudioInput {
         }
     }
 }
-
-DeriveSpxHandle!(
-    AudioInput,
-    audio_config_release,
-    audio_config_is_handle_valid
-);

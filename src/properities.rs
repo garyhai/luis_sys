@@ -12,6 +12,12 @@ use std::{
     ptr::null,
 };
 
+DeriveSpxHandle!(
+    Properties,
+    property_bag_release,
+    property_bag_is_valid
+);
+
 pub(crate) struct Properties {
     handle: SPXPROPERTYBAGHANDLE,
 }
@@ -81,9 +87,3 @@ impl Properties {
         }
     }
 }
-
-DeriveSpxHandle!(
-    Properties,
-    property_bag_release,
-    property_bag_is_valid
-);

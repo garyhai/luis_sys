@@ -34,6 +34,12 @@ pub struct ProxyConfig {
     password: String,
 }
 
+DeriveSpxHandle!(
+    RecognizerConfig,
+    speech_config_release,
+    speech_config_is_handle_valid
+);
+
 pub struct RecognizerConfig {
     handle: SPXSPEECHCONFIGHANDLE,
     props: Properties,
@@ -155,9 +161,9 @@ impl RecognizerConfig {
 }
 
 DeriveSpxHandle!(
-    RecognizerConfig,
-    speech_config_release,
-    speech_config_is_handle_valid
+    Recognizer,
+    recognizer_handle_release,
+    recognizer_handle_is_valid
 );
 
 pub struct Recognizer {
@@ -213,12 +219,6 @@ impl Recognizer {
         }
     }
 }
-
-DeriveSpxHandle!(
-    Recognizer,
-    recognizer_handle_release,
-    recognizer_handle_is_valid
-);
 
 pub struct Builder {
     table: Table<PropertyId, String>,
@@ -331,6 +331,12 @@ macro_rules! create_duration_prop {
     )
 }
 
+DeriveSpxHandle!(
+    RecognitionResult,
+    recognizer_result_handle_release,
+    recognizer_result_handle_is_valid
+);
+
 pub struct RecognitionResult {
     handle: SPXRESULTHANDLE,
     id: Option<String>,
@@ -389,9 +395,3 @@ impl RecognitionResult {
         self.props()?.get_by_name(name)
     }
 }
-
-DeriveSpxHandle!(
-    RecognitionResult,
-    recognizer_result_handle_release,
-    recognizer_result_handle_is_valid
-);
