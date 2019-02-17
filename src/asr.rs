@@ -21,8 +21,8 @@ use crate::speech_api::{
     SPXRESULTHANDLE, SPXSPEECHCONFIGHANDLE,
 };
 use crate::{
-    audio::AudioInput, hr, properities::Properties, Handle, Result, SpxError,
-    SpxHandle,
+    audio::AudioInput, hr, properities::Properties, DeriveSpxHandle, Handle,
+    Result, SpxError, SpxHandle,
 };
 use rustc_hash::FxHashMap as Table;
 use std::{ffi::CString, ptr::null_mut, time::Duration};
@@ -154,21 +154,11 @@ impl RecognizerConfig {
     }
 }
 
-impl Drop for RecognizerConfig {
-    fn drop(&mut self) {
-        unsafe {
-            if speech_config_is_handle_valid(self.handle) {
-                speech_config_release(self.handle);
-            }
-        }
-    }
-}
-
-impl SpxHandle for RecognizerConfig {
-    fn handle(&self) -> Handle {
-        self.handle as Handle
-    }
-}
+DeriveSpxHandle!(
+    RecognizerConfig,
+    speech_config_release,
+    speech_config_is_handle_valid
+);
 
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
@@ -224,21 +214,11 @@ impl Recognizer {
     }
 }
 
-impl Drop for Recognizer {
-    fn drop(&mut self) {
-        unsafe {
-            if recognizer_handle_is_valid(self.handle) {
-                recognizer_handle_release(self.handle);
-            }
-        }
-    }
-}
-
-impl SpxHandle for Recognizer {
-    fn handle(&self) -> Handle {
-        self.handle as Handle
-    }
-}
+DeriveSpxHandle!(
+    Recognizer,
+    recognizer_handle_release,
+    recognizer_handle_is_valid
+);
 
 pub struct Builder {
     table: Table<PropertyId, String>,
@@ -410,18 +390,8 @@ impl RecognitionResult {
     }
 }
 
-impl Drop for RecognitionResult {
-    fn drop(&mut self) {
-        unsafe {
-            if recognizer_result_handle_is_valid(self.handle) {
-                recognizer_result_handle_release(self.handle);
-            }
-        }
-    }
-}
-
-impl SpxHandle for RecognitionResult {
-    fn handle(&self) -> Handle {
-        self.handle as Handle
-    }
-}
+DeriveSpxHandle!(
+    RecognitionResult,
+    recognizer_result_handle_release,
+    recognizer_result_handle_is_valid
+);

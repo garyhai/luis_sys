@@ -1,5 +1,5 @@
 use crate::speech_api::*;
-use crate::{hr, Handle, Result, SpxHandle};
+use crate::{hr, Handle, Result, SpxHandle, DeriveSpxHandle};
 
 use std::{ffi::CString, ptr::null_mut};
 
@@ -27,18 +27,8 @@ impl AudioInput {
     }
 }
 
-impl Drop for AudioInput {
-    fn drop(&mut self) {
-        unsafe {
-            if audio_config_is_handle_valid(self.handle) {
-                audio_config_release(self.handle);
-            }
-        }
-    }
-}
-
-impl SpxHandle for AudioInput {
-    fn handle(&self) -> Handle {
-        self.handle as Handle
-    }
-}
+DeriveSpxHandle!(
+    AudioInput,
+    audio_config_release,
+    audio_config_is_handle_valid
+);
