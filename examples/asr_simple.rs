@@ -1,6 +1,6 @@
 use env_logger;
 use log::info;
-use luis_sys::{asr::Builder, Result};
+use luis_sys::{asr::builder::Builder, Result};
 use std::env;
 
 fn main() {
