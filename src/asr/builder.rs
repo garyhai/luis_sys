@@ -1,6 +1,4 @@
-use rustc_hash::FxHashMap as Table;
-use std::{ffi::CString, ptr::null_mut};
-
+use super::recognizer::Recognizer;
 use crate::{
     audio::AudioInput,
     create_prop, hr,
@@ -22,7 +20,8 @@ use crate::{
     },
     DeriveSpxHandle, Handle, Result, SpxHandle,
 };
-use super::recognizer::Recognizer;
+use rustc_hash::FxHashMap as Table;
+use std::{ffi::CString, ptr::null_mut};
 
 pub struct ProxyConfig {
     host_name: String,

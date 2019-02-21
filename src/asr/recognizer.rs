@@ -1,17 +1,27 @@
-use crate::speech_api::*;
+use super::{builder::RecognizerConfig, results::RecognitionResult};
 use crate::{
-    audio::AudioInput, hr, DeriveSpxHandle, Handle,
-    Result, SpxError, SpxHandle,
+    audio::AudioInput,
+    get_cf_string, hr,
+    speech_api::{
+        recognizer_async_handle_is_valid, recognizer_async_handle_release,
+        recognizer_create_speech_recognizer_from_config, recognizer_disable,
+        recognizer_enable, recognizer_event_handle_is_valid,
+        recognizer_event_handle_release, recognizer_handle_is_valid,
+        recognizer_handle_release, recognizer_recognize_once,
+        recognizer_session_event_get_session_id, session_handle_is_valid,
+        session_handle_release, Result_Reason_ResultReason_RecognizedSpeech,
+        SPXEVENTHANDLE, SPXRECOHANDLE,
+    },
+    DeriveSpxHandle, Handle, Result, SmartHandle, SpxError, SpxHandle,
 };
-use super::builder::*;
-use super::results::*;
-use std::ptr::null_mut;
+use std::{os::raw::c_void, ptr::null_mut};
 
 pub enum EventType {
     Session,
     SpeechDetected,
     Recognizing,
     Recognized,
+    Connection,
     Canceled,
 }
 
@@ -49,7 +59,7 @@ impl Recognizer {
 
     pub fn from_subscription(subscription: &str, region: &str) -> Result<Self> {
         let config = RecognizerConfig::from_subscription(subscription, region)?;
-        let audio = AudioInput::new();
+        let audio = AudioInput::default();
         Recognizer::from_config(config, audio)
     }
 
@@ -74,6 +84,16 @@ impl Recognizer {
         }
     }
 
+    pub fn pause(&self) -> Result {
+        hr(unsafe { recognizer_disable(self.handle) })
+    }
+
+    pub fn resume(&self) -> Result {
+        hr(unsafe { recognizer_enable(self.handle) })
+    }
+
+    // pub fn start(&mut self) -> Result {}
+
     // pub fn subscribe(&mut self, events: &[EventType]) -> impl Stream<Item = Event, Error = SpxError> {
     //     let (p, c) = mpsc::unbounded::<Event>();
     //     for ev in events {
@@ -87,3 +107,40 @@ impl Recognizer {
     // }
 }
 
+SmartHandle!(
+    RecognizerEvent,
+    recognizer_event_handle_release,
+    recognizer_event_handle_is_valid
+);
+
+impl RecognizerEvent {
+    pub fn session_id(&self) -> Result<String> {
+        get_cf_string(recognizer_session_event_get_session_id, self.handle, 40)
+    }
+}
+
+SmartHandle!(
+    RecognizerAsync,
+    recognizer_async_handle_release,
+    recognizer_async_handle_is_valid
+);
+
+SmartHandle!(
+    RecognizerSession,
+    session_handle_release,
+    session_handle_is_valid
+);
+
+unsafe extern "C" fn on_session_started(
+    hreco: SPXRECOHANDLE,
+    hevent: SPXEVENTHANDLE,
+    context: *mut c_void,
+) {
+    let evt = RecognizerEvent::from(hevent as Handle);
+    if context.is_null() {
+        return;
+    };
+    let sid = evt.session_id().expect("unexpected error");
+    let recognizer: &mut Recognizer =
+        unsafe { &mut *(context as *mut Recognizer) };
+}

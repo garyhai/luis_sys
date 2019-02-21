@@ -3,30 +3,17 @@
 use crate::speech_api::{
     property_bag_free_string, property_bag_get_string, property_bag_is_valid,
     property_bag_release, property_bag_set_string, PropertyId,
-    SPXPROPERTYBAGHANDLE,
 };
-use crate::{Handle, Result, SpxHandle, DeriveSpxHandle};
+use crate::{Handle, Result, SmartHandle, SpxHandle};
 use std::{
     ffi::{CStr, CString},
     os::raw::c_int,
     ptr::null,
 };
 
-DeriveSpxHandle!(
-    Properties,
-    property_bag_release,
-    property_bag_is_valid
-);
-
-pub(crate) struct Properties {
-    handle: SPXPROPERTYBAGHANDLE,
-}
+SmartHandle!(Properties, property_bag_release, property_bag_is_valid);
 
 impl Properties {
-    pub fn new(handle: SPXPROPERTYBAGHANDLE) -> Self {
-        Properties { handle }
-    }
-
     pub fn get_by_id(&self, id: PropertyId) -> Result<String> {
         let blank = CString::new("")?;
         unsafe {

@@ -9,7 +9,7 @@ use crate::{
     },
     DeriveSpxHandle, Handle, Result, SpxHandle,
 };
-use std::{ffi::CString, ptr::null_mut, time::Duration};
+use std::{ptr::null_mut, time::Duration};
 
 macro_rules! create_string_prop {
     ($name:ident, $func:ident) => (
@@ -101,5 +101,11 @@ impl RecognitionResult {
 
     pub fn get_by_name(&mut self, name: &str) -> Result<String> {
         self.props()?.get_by_name(name)
+    }
+}
+
+impl From<Handle> for RecognitionResult {
+    fn from(handle: Handle) -> Self {
+        Self::new(handle as SPXRESULTHANDLE)
     }
 }
