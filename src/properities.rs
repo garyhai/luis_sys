@@ -9,6 +9,7 @@ use std::{
     ffi::{CStr, CString},
     os::raw::c_int,
     ptr::null,
+    fmt,
 };
 
 SmartHandle!(Properties, property_bag_release, property_bag_is_valid);
@@ -72,5 +73,11 @@ impl Properties {
             );
             Ok(())
         }
+    }
+}
+
+impl fmt::Debug for Properties {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Properties can not list here.")
     }
 }
