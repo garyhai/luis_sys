@@ -1,9 +1,10 @@
-use super::recognizer::Recognizer;
+use super::{events::Flags, recognizer::Recognizer};
 use crate::{
     audio::AudioInput,
-    create_prop, hr,
-    properities::Properties,
+    hr,
+    properities::{Properties, PropertyBag},
     speech_api::{
+        recognizer_create_speech_recognizer_from_config,
         speech_config_from_subscription, speech_config_get_property_bag,
         speech_config_is_handle_valid, speech_config_release, PropertyId,
         PropertyId_SpeechServiceAuthorization_Token,
@@ -16,12 +17,37 @@ use crate::{
         PropertyId_SpeechServiceConnection_RecoLanguage,
         PropertyId_SpeechServiceConnection_Region,
         PropertyId_SpeechServiceResponse_RequestDetailedResultTrueFalse,
-        SPXSPEECHCONFIGHANDLE,
+        SPXSPEECHCONFIGHANDLE, UINT32_MAX,
     },
-    DeriveSpxHandle, Handle, Result, SpxHandle,
+    DeriveHandle, Handle, Result, INVALID_HANDLE,
 };
-use rustc_hash::FxHashMap as Table;
-use std::{ffi::CString, ptr::null_mut};
+use std::ffi::CString;
+
+macro_rules! create_prop {
+    ($name:ident) => (
+        pub fn $name<T: ToString>(mut self, v: T) -> Self {
+            self.$name = v.to_string();
+            self
+        }
+    );
+
+    ($name:ident, $t:ty) => (
+        pub fn $name(mut self, v: $t) -> Self {
+            self.$name = v;
+            self
+        }
+    );
+
+    ($prop_get:ident, $prop_put:ident, $id:expr) => (
+        pub fn $prop_get(&self) -> Result<String> {
+            self.props.get_by_id($id)
+        }
+
+        pub fn $prop_put(&self, v: &str) -> Result {
+            self.props.put_by_id($id, v)
+        }
+    )
+}
 
 pub struct ProxyConfig {
     host_name: String,
@@ -30,8 +56,9 @@ pub struct ProxyConfig {
     password: String,
 }
 
-DeriveSpxHandle!(
+DeriveHandle!(
     RecognizerConfig,
+    SPXSPEECHCONFIGHANDLE,
     speech_config_release,
     speech_config_is_handle_valid
 );
@@ -42,24 +69,23 @@ pub struct RecognizerConfig {
 }
 
 impl RecognizerConfig {
+    pub fn new(handle: SPXSPEECHCONFIGHANDLE) -> Result<Self> {
+        let mut hprops = INVALID_HANDLE;
+        hr!(speech_config_get_property_bag(handle, &mut hprops))?;
+        let props = Properties::new(hprops);
+        Ok(RecognizerConfig { handle, props })
+    }
+
     pub fn from_subscription(subscription: &str, region: &str) -> Result<Self> {
-        let mut handle = null_mut();
+        let mut handle = INVALID_HANDLE;
         let subscription = CString::new(subscription)?;
         let region = CString::new(region)?;
-        unsafe {
-            hr(speech_config_from_subscription(
-                &mut handle,
-                subscription.as_ptr(),
-                region.as_ptr(),
-            ))?;
-            let mut hprops = null_mut();
-            hr(speech_config_get_property_bag(handle, &mut hprops))?;
-            let props = Properties::new(hprops);
-            Ok(RecognizerConfig {
-                handle: handle,
-                props,
-            })
-        }
+        hr!(speech_config_from_subscription(
+            &mut handle,
+            subscription.as_ptr(),
+            region.as_ptr(),
+        ))?;
+        RecognizerConfig::new(handle)
     }
 
     create_prop!(
@@ -129,78 +155,68 @@ impl RecognizerConfig {
             &proxy.password,
         )
     }
+}
 
-    pub fn get_by_id(&self, id: PropertyId) -> Result<String> {
+impl PropertyBag for RecognizerConfig {
+    fn get_by_id(&self, id: PropertyId) -> Result<String> {
         self.props.get_by_id(id)
     }
 
-    pub fn put_by_id(&self, id: PropertyId, value: &str) -> Result<()> {
+    fn put_by_id(&self, id: PropertyId, value: &str) -> Result<()> {
         self.props.put_by_id(id, value)
     }
 }
 
+#[derive(Debug, Default)]
 pub struct Builder {
-    table: Table<PropertyId, String>,
-    audio: String,
+    audio_file_path: String,
+    flags: Flags,
+    language: String,
+    region: String,
+    subscription_key: String,
+    timeout: u32,
 }
 
 impl Builder {
     pub fn new() -> Self {
+        let flags = Flags::Recognized;
+        let timeout = UINT32_MAX;
         Builder {
-            table: Table::default(),
-            audio: String::new(),
+            flags,
+            timeout,
+            ..Default::default()
         }
     }
 
-    pub fn subscription_key<T: ToString>(mut self, v: T) -> Self {
-        self.table
-            .insert(PropertyId_SpeechServiceConnection_Key, v.to_string());
-        self
-    }
-
-    pub fn region<T: ToString>(mut self, v: T) -> Self {
-        self.table
-            .insert(PropertyId_SpeechServiceConnection_Region, v.to_string());
-        self
-    }
-
-    pub fn language<T: ToString>(mut self, v: T) -> Self {
-        self.table.insert(
-            PropertyId_SpeechServiceConnection_RecoLanguage,
-            v.to_string(),
-        );
-        self
-    }
-
-    pub fn audio_file_path<T: ToString>(mut self, v: T) -> Self {
-        self.audio = v.to_string();
-        self
+    pub fn build(&self) -> Result<Recognizer> {
+        let config = self.create_config()?;
+        let audio = self.create_audio()?;
+        let mut rh = INVALID_HANDLE;
+        hr!(recognizer_create_speech_recognizer_from_config(
+            &mut rh,
+            config.handle(),
+            audio.handle(),
+        ))?;
+        Ok(Recognizer::new(rh, self.flags, self.timeout))
     }
 
     pub fn create_config(&self) -> Result<RecognizerConfig> {
-        let default = String::from("");
-        let key = self
-            .table
-            .get(&PropertyId_SpeechServiceConnection_Key)
-            .unwrap_or(&default);
-        let region = self
-            .table
-            .get(&PropertyId_SpeechServiceConnection_Region)
-            .unwrap_or(&default);
-        let config = RecognizerConfig::from_subscription(&key, &region)?;
-        for (k, v) in self.table.iter() {
-            config.put_by_id(*k, v)?;
-        }
+        let config = RecognizerConfig::from_subscription(
+            &self.subscription_key,
+            &self.region,
+        )?;
+        config.set_language(&self.language)?;
         Ok(config)
     }
 
     pub fn create_audio(&self) -> Result<AudioInput> {
-        AudioInput::from_wav_file(&self.audio)
+        AudioInput::from_wav_file(&self.audio_file_path)
     }
 
-    pub fn create_recognizer(&self) -> Result<Recognizer> {
-        let config = self.create_config()?;
-        let audio = self.create_audio()?;
-        Recognizer::from_config(config, audio)
-    }
+    create_prop!(subscription_key);
+    create_prop!(region);
+    create_prop!(language);
+    create_prop!(audio_file_path);
+    create_prop!(flags, Flags);
+    create_prop!(timeout, u32);
 }

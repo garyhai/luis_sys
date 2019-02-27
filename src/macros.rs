@@ -1,10 +1,11 @@
 // Quick and dirty "DRY"
+
 #[macro_export]
-macro_rules! DeriveSpxHandle {
-    ( $name:ident, $release:ident $(, $check:ident)? ) => (
-        impl SpxHandle for $name {
-            fn handle(&self) -> Handle {
-                self.handle as Handle
+macro_rules! DeriveHandle {
+    ( $name:ident, $t:ty, $release:ident $(, $check:ident)? ) => (
+        impl crate::Handle<$t> for $name {
+            fn handle(&self) -> $t {
+                self.handle
             }
         }
 
@@ -15,52 +16,67 @@ macro_rules! DeriveSpxHandle {
                     $release(self.handle);
                 }
                 log::trace!("{}({}) is released",
-                            stringify!($name),
-                            self.handle as usize);
+                    stringify!($name),
+                    self.handle as usize);
             }
-        }
-    )
-}
-
-#[macro_export]
-macro_rules! create_prop {
-    ($prop_get:ident, $prop_put:ident, $id:expr) => (
-        pub fn $prop_get(&self) -> Result<String> {
-            self.props.get_by_id($id)
-        }
-
-        pub fn $prop_put(&self, v: &str) -> Result {
-            self.props.put_by_id($id, v)
         }
     )
 }
 
 #[macro_export]
 macro_rules! SmartHandle {
-    ( $name:ident, $release:ident, $check:ident ) => (
-        crate::DeriveSpxHandle!($name, $release, $check);
+    ( $name:ident, $t:ty, $release:ident, $check:ident ) => {
+        crate::DeriveHandle!($name, $t, $release, $check);
         pub struct $name {
-            handle: Handle,
+            handle: $t,
         }
 
         impl $name {
-            pub fn new(handle: Handle) -> Self {
+            pub fn new(handle: $t) -> Self {
                 $name { handle }
+            }
+
+            #[allow(dead_code)]
+            pub fn is_valid(&self) -> bool {
+                unsafe { $check(self.handle) }
+            }
+
+            #[allow(dead_code)]
+            pub fn release(&mut self) {
+                if self.is_valid() {
+                    unsafe { $release(self.handle) };
+                }
+                self.handle = crate::INVALID_HANDLE as $t;
             }
         }
 
-        impl From<Handle> for $name {
-            fn from(handle: Handle) -> Self {
+        impl std::ops::Deref for $name {
+            type Target = $t;
+
+            fn deref(&self) -> &$t {
+                &self.handle
+            }
+        }
+
+        impl From<$t> for $name {
+            fn from(handle: $t) -> Self {
                 Self::new(handle)
             }
         }
 
         impl Default for $name {
             fn default() -> Self {
-                Self::new(::std::ptr::null_mut())
+                Self::new(crate::INVALID_HANDLE as $t)
             }
         }
-    )
+    };
+}
+
+#[macro_export]
+macro_rules! hr {
+    ($ffi:expr) => {
+        crate::ffi_result(unsafe { $ffi })
+    };
 }
 
 #[macro_export]

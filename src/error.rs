@@ -1,15 +1,18 @@
-use std::ffi;
+use crate::asr::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
-use crate::asr::results::{NoMatchResult, CancellationResult};
+use serde_json::{Value, Error as JsonError};
+use std::ffi;
 
 #[derive(Fail, Debug)]
 pub enum SpxError {
     #[fail(display = "speech API return error code: {}", _0)]
     ApiError(usize),
     #[fail(display = "ASR progress is cancelled: {}", _0)]
-    Cancellation(String),
+    Cancellation(Value),
     #[fail(display = "recognition result was not recognized: {}", _0)]
-    NoMatch(String),
+    NoMatch(Value),
+    #[fail(display = "failed to parse as JSON format: {}", _0)]
+    ParseJson(JsonError),
     #[fail(display = "an interior nul byte was found")]
     NulError,
     #[fail(display = "invalid UTF-8 string")]
@@ -20,9 +23,13 @@ pub enum SpxError {
     Poisoned,
     #[fail(display = "operation may be blocked")]
     WouldBlock,
-    #[fail(display = "unknown error")]
-    Unknown,
+    #[fail(display = "method is unimplemented")]
+    Unimplemented,
+    #[fail(display = "unknown error: {}", _0)]
+    Unknown(String),
 }
+
+pub use SpxError::*;
 
 impl From<usize> for SpxError {
     fn from(code: usize) -> Self {
@@ -31,15 +38,27 @@ impl From<usize> for SpxError {
     }
 }
 
-impl From<NoMatchResult> for SpxError {
-    fn from(err: NoMatchResult) -> Self {
-        SpxError::NoMatch(err.to_string())
+impl From<JsonError> for SpxError {
+    fn from(err: JsonError) -> Self {
+        SpxError::ParseJson(err)
     }
 }
 
-impl From<CancellationResult> for SpxError {
-    fn from(err: CancellationResult) -> Self {
-        SpxError::Cancellation(err.to_string())
+impl From<NoMatchError> for SpxError {
+    fn from(err: NoMatchError) -> Self {
+        match err.to_json() {
+            Ok(v) => NoMatch(v),
+            Err(e) => e,
+        }
+    }
+}
+
+impl From<CancellationError> for SpxError {
+    fn from(err: CancellationError) -> Self {
+        match err.to_json() {
+            Ok(v) => Cancellation(v),
+            Err(e) => e,
+        }
     }
 }
 
@@ -64,14 +83,14 @@ impl From<std::str::Utf8Error> for SpxError {
 impl<T> From<std::sync::TryLockError<T>> for SpxError {
     fn from(err: std::sync::TryLockError<T>) -> Self {
         match err {
-            WouldBlock => SpxError::WouldBlock,
+            std::sync::TryLockError::WouldBlock => SpxError::WouldBlock,
             _ => SpxError::Poisoned,
         }
     }
 }
 
 impl<T> From<std::sync::PoisonError<T>> for SpxError {
-    fn from(err: std::sync::PoisonError<T>) -> Self {
+    fn from(_: std::sync::PoisonError<T>) -> Self {
         SpxError::Poisoned
     }
 }
