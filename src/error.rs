@@ -1,6 +1,6 @@
 use crate::asr::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
-use serde_json::{Value, Error as JsonError};
+use serde_json::{Error as JsonError, Value};
 use std::{ffi, string::FromUtf8Error};
 
 #[derive(Fail, Debug)]

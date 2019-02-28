@@ -1,19 +1,38 @@
-use super::events::*;
+use super::events::{
+    AsrResult, Event, EventResult, Flags, Recognition, RecognitionResult,
+    Session,
+};
 use crate::{
-    hr, speech_api::*, DeriveHandle, Result, SmartHandle, SpxError,
-    INVALID_HANDLE,
+    hr,
+    speech_api::{
+        connection_connected_set_callback,
+        connection_disconnected_set_callback, connection_from_recognizer,
+        connection_handle_release, recognizer_async_handle_is_valid,
+        recognizer_async_handle_release, recognizer_canceled_set_callback,
+        recognizer_disable, recognizer_enable, recognizer_handle_is_valid,
+        recognizer_handle_release, recognizer_recognize_once,
+        recognizer_recognized_set_callback,
+        recognizer_recognizing_set_callback,
+        recognizer_session_started_set_callback,
+        recognizer_session_stopped_set_callback,
+        recognizer_speech_end_detected_set_callback,
+        recognizer_speech_start_detected_set_callback,
+        recognizer_start_continuous_recognition_async,
+        recognizer_start_continuous_recognition_async_wait_for,
+        recognizer_stop_continuous_recognition_async, session_handle_is_valid,
+        session_handle_release, Result_Reason_ResultReason_RecognizedSpeech,
+        SPXASYNCHANDLE, SPXEVENTHANDLE, SPXRECOHANDLE, SPXSESSIONHANDLE,
+    },
+    DeriveHandle, Result, SmartHandle, SpxError, INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
-    Poll, Stream, Async
+    try_ready, Async, Future, Poll, Stream,
 };
 use std::{
-    mem,
     os::raw::c_void,
     sync::{Arc, Weak},
 };
-
-pub type Msg = Result<Recognition>;
 
 macro_rules! DefCallback {
     ($name:ident, $flag:expr) => {
@@ -23,9 +42,6 @@ macro_rules! DefCallback {
             hevent: SPXEVENTHANDLE,
             context: *mut c_void,
         ) {
-            // log::warn!("h_reco: {}, hevent: {}, flag: {:?}", h as usize, hevent as usize, $flag);
-            // let evt = Event::new($flag, hevent);
-            // log::warn!("event: {:?}", evt.into_result());
             fire_on_event($flag, hevent, context);
         }
     };
@@ -54,8 +70,7 @@ DeriveHandle!(
 
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
-    sink: Option<Arc<UnboundedSender<Msg>>>,
-    reception: Option<UnboundedReceiver<Msg>>,
+    sink: Option<Arc<UnboundedSender<Event>>>,
     flags: Flags,
     timeout: u32,
 }
@@ -67,7 +82,6 @@ impl Recognizer {
             flags,
             timeout,
             sink: None,
-            reception: None,
         }
     }
 
@@ -94,16 +108,8 @@ impl Recognizer {
         self.sink.is_some()
     }
 
-    pub fn start(&mut self) -> Result {
+    pub fn start(&mut self) -> Result<EventStream> {
         self.start_flags(Flags::empty())
-    }
-
-    pub fn start_flags(&mut self, flags: Flags) -> Result {
-        if self.started() {
-            return Err(SpxError::AlreadyExists);
-        }
-        self.flags |= flags;
-        self.hook(self.flags)
     }
 
     pub fn stop(&mut self) -> Result {
@@ -114,11 +120,15 @@ impl Recognizer {
         ))?;
         let _ = RecognizerAsync::new(h);
         self.sink = None;
-        self.reception = None;
         Ok(())
     }
 
-    fn hook(&mut self, flags: Flags) -> Result {
+    pub fn start_flags(&mut self, flags: Flags) -> Result<EventStream> {
+        if self.started() {
+            return Err(SpxError::AlreadyExists);
+        }
+
+        let flags = self.flags | flags;
         let mut h = INVALID_HANDLE;
         hr!(recognizer_start_continuous_recognition_async(
             self.handle,
@@ -130,11 +140,10 @@ impl Recognizer {
             self.timeout,
         ))?;
 
-        if self.sink.is_none() {
-            let (s, r) = unbounded::<Msg>();
-            self.sink = Some(Arc::new(s));
-            self.reception = Some(r);
-        }
+        let (s, r) = unbounded::<Event>();
+        self.sink = Some(Arc::new(s));
+        let reception = EventStream::new(r, flags);
+
         let sink = self.sink.as_mut().unwrap();
         let sk = Box::new(Arc::downgrade(sink));
         let context = Box::into_raw(sk) as *mut c_void;
@@ -214,24 +223,75 @@ impl Recognizer {
             ))?;
         }
 
-        Ok(())
+        Ok(reception)
     }
 }
 
-impl Stream for Recognizer {
-    type Item = Recognition;
-    type Error = SpxError;
-    fn poll(&mut self) -> Poll<Option<Recognition>, SpxError> {
-        if let Some(ref mut r) = self.reception.as_mut() {
-            match r.poll() {
-                Ok(Async::Ready(Some(Ok(msg)))) => Ok(Async::Ready(Some(msg))),
-                Ok(Async::Ready(Some(Err(err)))) => Err(err),
-                Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(_) => Err(SpxError::Unknown(String::new())),
+pub struct EventStream {
+    filter: Flags,
+    source: UnboundedReceiver<Event>,
+    stopped: bool,
+}
+
+impl EventStream {
+    pub fn new(source: UnboundedReceiver<Event>, filter: Flags) -> Self {
+        EventStream {
+            filter,
+            source,
+            stopped: false,
+        }
+    }
+
+    pub fn filter(mut self, flags: Flags) -> Self {
+        self.filter = flags;
+        self
+    }
+
+    pub fn into_resulting(
+        self,
+    ) -> impl Stream<Item = Recognition, Error = SpxError> {
+        self.then(|res| {
+            if let Ok(evt) = res {
+                evt.into_result()
+            } else {
+                Err(SpxError::Unknown(String::from("streaming is interrupted")))
             }
-        } else {
-            Err(SpxError::Unknown(String::from("Recognizer is not started")))
+        })
+    }
+
+    pub fn into_result(
+        self,
+    ) -> impl Future<Item = Recognition, Error = SpxError> {
+        let this = self.filter(Flags::Recognized);
+        this.into_resulting().into_future().then(|res| match res {
+            Ok((Some(reco), _)) => Ok(reco),
+            Ok((None, _)) => Err(SpxError::NulError),
+            Err((err, _)) => Err(err),
+        })
+    }
+}
+
+impl Stream for EventStream {
+    type Item = Event;
+    type Error = ();
+    fn poll(&mut self) -> Poll<Option<Event>, ()> {
+        if self.stopped {
+            return Ok(Async::Ready(None));
+        }
+        loop {
+            match try_ready!(self.source.poll()) {
+                Some(evt) => {
+                    if evt.flag().contains(Flags::SessionStopped) {
+                        self.stopped = true;
+                        return Ok(Async::Ready(Some(evt)));
+                    }
+
+                    if evt.flag().intersects(self.filter) {
+                        return Ok(Async::Ready(Some(evt)));
+                    }
+                }
+                None => return Ok(Async::Ready(None)),
+            }
         }
     }
 }
@@ -249,7 +309,6 @@ unsafe extern "C" fn on_connected(
     hevent: SPXEVENTHANDLE,
     context: *mut c_void,
 ) {
-    // log::warn!("hevent: {}, flag: {:?}", hevent as usize, Flags::Connected);
     fire_on_event(Flags::Connected, hevent, context);
 }
 
@@ -258,10 +317,8 @@ unsafe extern "C" fn on_disconnected(
     hevent: SPXEVENTHANDLE,
     context: *mut c_void,
 ) {
-    // log::warn!("hevent: {}, flag: {:?}", hevent as usize, Flags::Disconnected);
     fire_on_event(Flags::Disconnected, hevent, context);
 }
-
 
 fn fire_on_event(flag: Flags, hevent: SPXEVENTHANDLE, context: *mut c_void) {
     let evt = Event::new(flag, hevent);
@@ -271,12 +328,13 @@ fn fire_on_event(flag: Flags, hevent: SPXEVENTHANDLE, context: *mut c_void) {
     }
     log::trace!("Event is fired with {:?} and address: {:?}", flag, context);
     let ctx =
-        unsafe { Box::from_raw(context as *mut Weak<UnboundedSender<Msg>>) };
+        unsafe { Box::from_raw(context as *mut Weak<UnboundedSender<Event>>) };
     let weak_ptr = Weak::clone(&ctx);
-    mem::forget(ctx);
+    // forget the box, at least one box is leaked.
+    Box::into_raw(ctx);
     if let Some(mut arc) = weak_ptr.upgrade() {
         let sender = Arc::make_mut(&mut arc);
-        if let Err(err) = sender.unbounded_send(evt.into_result()) {
+        if let Err(err) = sender.unbounded_send(evt) {
             log::error!("failed to post event data by error: {}", err);
             log::debug!("{:?}", err);
         }

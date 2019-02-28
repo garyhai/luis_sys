@@ -1,5 +1,5 @@
 use env_logger;
-use futures::Stream;
+use futures::{Future, Stream};
 use log::{error, info};
 use luis_sys::{builder::Builder, events::Flags, Result};
 use std::env;
@@ -7,7 +7,7 @@ use tokio;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
-    env::set_var("RUST_LOG", "trace");
+    env::set_var("RUST_LOG", "debug");
     env_logger::init();
 
     let flags = Flags::Recognization
@@ -22,29 +22,56 @@ fn main() {
         .audio_file_path("examples/chinese_test.wav")
         .flags(flags);
     info!("Start ASR test...");
-    // recognize_once(factory).map_err(|e| dbg!(e)).unwrap();
-    recognize_continue(factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_once(&factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_raw(&factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_stream(&factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_future(&factory).map_err(|e| dbg!(e)).unwrap();
     info!("Stop ASR test...");
 }
 
-fn recognize_once(factory: Builder) -> Result {
+fn recognize_once(factory: &Builder) -> Result {
+    info!("Synchronous ASR ");
     let recognizer = factory.build()?;
     let result = recognizer.recognize()?;
     info!("done: {}", result);
     Ok(())
 }
 
-fn recognize_continue(factory: Builder) -> Result {
+fn recognize_raw(factory: &Builder) -> Result {
+    info!("Asynchronous ASR, streaming Event object");
     let mut reco = factory.build()?;
-    reco.start()?;
+    let promise = reco.start()?.for_each(|msg| {
+        info!("result: {:?}", msg.into_result());
+        Ok(())
+    });
+    tokio::run(promise);
+    Ok(())
+}
+
+fn recognize_stream(factory: &Builder) -> Result {
+    info!("Asynchronous ASR, get streaming results");
+    let mut reco = factory.build()?;
     let promise = reco
-        .map_err(|err| {
-            error!("Something wrong: {}", err);
-        })
+        .start()?
+        .into_resulting()
+        .map_err(|err| error!("{}", err))
         .for_each(|msg| {
             info!("result: {:?}", msg);
             Ok(())
         });
+
+    tokio::run(promise);
+    Ok(())
+}
+
+fn recognize_future(factory: &Builder) -> Result {
+    info!("Asynchronous ASR, get result by Future.");
+    let mut reco = factory.build()?;
+    let promise = reco
+        .start()?
+        .into_result()
+        .map_err(|err| error!("{}", err))
+        .map(|msg| info!("result: {:?}", msg));
     tokio::run(promise);
     Ok(())
 }

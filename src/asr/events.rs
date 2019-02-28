@@ -1,7 +1,31 @@
 use crate::{
     get_cf_string, hr,
     properities::{Properties, PropertyBag},
-    speech_api::*,
+    speech_api::{
+        recognizer_event_handle_is_valid, recognizer_event_handle_release,
+        recognizer_recognition_event_get_offset,
+        recognizer_recognition_event_get_result,
+        recognizer_result_handle_is_valid, recognizer_result_handle_release,
+        recognizer_session_event_get_session_id,
+        result_get_canceled_error_code, result_get_duration,
+        result_get_no_match_reason, result_get_property_bag, result_get_reason,
+        result_get_reason_canceled, result_get_result_id, result_get_text,
+        PropertyId, PropertyId_SpeechServiceResponse_JsonErrorDetails,
+        Result_CancellationErrorCode,
+        Result_CancellationErrorCode_CancellationErrorCode_NoError,
+        Result_CancellationReason, Result_NoMatchReason, Result_Reason,
+        Result_Reason_ResultReason_Canceled,
+        Result_Reason_ResultReason_NoMatch,
+        Result_Reason_ResultReason_RecognizedIntent,
+        Result_Reason_ResultReason_RecognizedSpeech,
+        Result_Reason_ResultReason_RecognizingIntent,
+        Result_Reason_ResultReason_RecognizingSpeech,
+        Result_Reason_ResultReason_SynthesizingAudio,
+        Result_Reason_ResultReason_SynthesizingAudioComplete,
+        Result_Reason_ResultReason_TranslatedSpeech,
+        Result_Reason_ResultReason_TranslatingSpeech, SPXEVENTHANDLE,
+        SPXRESULTHANDLE,
+    },
     DeriveHandle, Handle, Result, SpxError, INVALID_HANDLE,
 };
 use serde::Serialize;
@@ -108,7 +132,13 @@ impl Event {
         r.reason = Some(er.reason()?);
 
         if flag.intersects(Flags::Canceled) {
-            return er.cancellation_error();
+            if er.code()?
+                == Result_CancellationErrorCode_CancellationErrorCode_NoError
+            {
+                return Ok(r);
+            } else {
+                return er.cancellation_error();
+            }
         }
 
         if flag.intersects(Flags::Recognization) {
