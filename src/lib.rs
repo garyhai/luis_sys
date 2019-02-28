@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate bitflags;
-use std::{ffi::CString, os::raw::c_char};
+use std::{ffi::CStr, os::raw::c_char};
 
 pub(crate) mod audio;
 pub(crate) mod macros;
@@ -16,7 +16,6 @@ pub type Result<T = (), E = SpxError> = std::result::Result<T, E>;
 
 pub use speech_api::{SPXHANDLE, SPXHR};
 pub(crate) const INVALID_HANDLE: SPXHANDLE = std::usize::MAX as SPXHANDLE;
-// pub(crate) const INVALID_HANDLE: SPXHANDLE = std::ptr::null_mut();
 
 pub trait Handle<T = SPXHANDLE> {
     fn handle(&self) -> T;
@@ -33,13 +32,13 @@ pub(crate) fn ffi_result(code: SPXHR) -> Result {
 pub(crate) fn get_cf_string(
     cf: unsafe extern "C" fn(SPXHANDLE, *mut c_char, u32) -> SPXHR,
     handle: SPXHANDLE,
-    length: u32,
+    length: usize,
 ) -> Result<String> {
-    let max_len = if length == 0 { 1024 } else { length };
-    let s = String::with_capacity(max_len as usize + 1);
-    let buf = r#try!(CString::new(s));
-    let buf_ptr = buf.into_raw();
-    hr!(cf(handle, buf_ptr, max_len))?;
-    let output = unsafe { CString::from_raw(buf_ptr) };
-    Ok(output.into_string()?)
+    let length = if length == 0 { 1024 } else { length };
+    let max_len = length + 1;
+    let mut s = Vec::with_capacity(max_len);
+    let buf_ptr = s.as_mut_ptr() as *mut std::os::raw::c_char;
+    hr!(cf(handle, buf_ptr, max_len as u32))?;
+    let output = unsafe { CStr::from_ptr(buf_ptr) };
+    Ok(String::from(output.to_str()?))
 }

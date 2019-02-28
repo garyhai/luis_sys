@@ -20,6 +20,8 @@ macro_rules! DeriveHandle {
                     self.handle as usize);
             }
         }
+
+        unsafe impl Send for $name {}
     )
 }
 

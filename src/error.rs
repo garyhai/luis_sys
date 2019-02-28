@@ -1,7 +1,7 @@
 use crate::asr::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
 use serde_json::{Value, Error as JsonError};
-use std::ffi;
+use std::{ffi, string::FromUtf8Error};
 
 #[derive(Fail, Debug)]
 pub enum SpxError {
@@ -16,7 +16,7 @@ pub enum SpxError {
     #[fail(display = "an interior nul byte was found")]
     NulError,
     #[fail(display = "invalid UTF-8 string")]
-    Utf8Error,
+    Utf8Error(String),
     #[fail(display = "an entity already exists")]
     AlreadyExists,
     #[fail(display = "mutex lock is poisoned")]
@@ -69,14 +69,20 @@ impl From<ffi::NulError> for SpxError {
 }
 
 impl From<ffi::IntoStringError> for SpxError {
-    fn from(_err: ffi::IntoStringError) -> Self {
-        SpxError::Utf8Error
+    fn from(err: ffi::IntoStringError) -> Self {
+        SpxError::Utf8Error(err.to_string())
     }
 }
 
 impl From<std::str::Utf8Error> for SpxError {
-    fn from(_err: std::str::Utf8Error) -> Self {
-        SpxError::Utf8Error
+    fn from(err: std::str::Utf8Error) -> Self {
+        SpxError::Utf8Error(err.to_string())
+    }
+}
+
+impl From<FromUtf8Error> for SpxError {
+    fn from(err: FromUtf8Error) -> Self {
+        SpxError::Utf8Error(err.to_string())
     }
 }
 
