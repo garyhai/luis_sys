@@ -28,12 +28,12 @@ use crate::{
     },
     DeriveHandle, Handle, Result, SpxError, INVALID_HANDLE,
 };
-use serde::Serialize;
+use serde::{Serializer, Serialize};
 use serde_json;
 use std::time::Duration;
 
 bitflags! {
-    #[derive(Default, Serialize)]
+    #[derive(Default)]
     pub struct Flags: u64 {
         const Connected = 0b0001;
         const Disconnected = 0b0010;
@@ -56,6 +56,16 @@ bitflags! {
     }
 }
 
+impl Serialize for Flags {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let display = format!("{:?}", self);
+            serializer.serialize_str(&display)
+        }
+}
+
 pub trait ToJson
 where
     Self: Serialize + Sized,
@@ -73,10 +83,15 @@ where
 pub struct Recognition {
     flag: Flags,
     session: String,
+    #[serde(skip_serializing_if="Option::is_none")]
     id: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
     reason: Option<Result_Reason>,
+    #[serde(skip_serializing_if="Option::is_none")]
     offset: Option<Duration>,
+    #[serde(skip_serializing_if="Option::is_none")]
     duration: Option<Duration>,
+    #[serde(skip_serializing_if="Option::is_none")]
     text: Option<String>,
 }
 
@@ -161,6 +176,7 @@ impl Session for Event {
         get_cf_string(recognizer_session_event_get_session_id, self.handle, 40)
     }
 }
+
 impl Detection for Event {}
 
 pub trait Session: Handle<SPXEVENTHANDLE> {

@@ -2,8 +2,9 @@ use crate::asr::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
 use serde_json::{Error as JsonError, Value};
 use std::{ffi, string::FromUtf8Error};
+use serde::Serialize;
 
-#[derive(Fail, Debug)]
+#[derive(Fail, Debug, Serialize)]
 pub enum SpxError {
     #[fail(display = "speech API return error code: {}", _0)]
     ApiError(usize),
@@ -12,7 +13,7 @@ pub enum SpxError {
     #[fail(display = "recognition result was not recognized: {}", _0)]
     NoMatch(Value),
     #[fail(display = "failed to parse as JSON format: {}", _0)]
-    ParseJson(JsonError),
+    ParseJson(String),
     #[fail(display = "an interior nul byte was found")]
     NulError,
     #[fail(display = "invalid UTF-8 string")]
@@ -40,7 +41,7 @@ impl From<usize> for SpxError {
 
 impl From<JsonError> for SpxError {
     fn from(err: JsonError) -> Self {
-        SpxError::ParseJson(err)
+        SpxError::ParseJson(err.to_string())
     }
 }
 

@@ -10,7 +10,7 @@ fn main() {
     env::set_var("RUST_LOG", "debug");
     env_logger::init();
 
-    let flags = Flags::Recognization
+    let flags = Flags::Recognized
         | Flags::Session
         | Flags::Connection
         | Flags::SpeechDetection
@@ -23,8 +23,8 @@ fn main() {
         .flags(flags);
     info!("Start ASR test...");
     recognize_once(&factory).map_err(|e| dbg!(e)).unwrap();
-    recognize_raw(&factory).map_err(|e| dbg!(e)).unwrap();
     recognize_stream(&factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_json(&factory).map_err(|e| dbg!(e)).unwrap();
     recognize_future(&factory).map_err(|e| dbg!(e)).unwrap();
     info!("Stop ASR test...");
 }
@@ -37,7 +37,7 @@ fn recognize_once(factory: &Builder) -> Result {
     Ok(())
 }
 
-fn recognize_raw(factory: &Builder) -> Result {
+fn recognize_stream(factory: &Builder) -> Result {
     info!("Asynchronous ASR, streaming Event object");
     let mut reco = factory.build()?;
     let promise = reco.start()?.for_each(|msg| {
@@ -48,15 +48,15 @@ fn recognize_raw(factory: &Builder) -> Result {
     Ok(())
 }
 
-fn recognize_stream(factory: &Builder) -> Result {
+fn recognize_json(factory: &Builder) -> Result {
     info!("Asynchronous ASR, get streaming results");
     let mut reco = factory.build()?;
     let promise = reco
         .start()?
-        .into_resulting()
+        .into_json()
         .map_err(|err| error!("{}", err))
         .for_each(|msg| {
-            info!("result: {:?}", msg);
+            info!("result: {}", msg);
             Ok(())
         });
 
@@ -69,7 +69,7 @@ fn recognize_future(factory: &Builder) -> Result {
     let mut reco = factory.build()?;
     let promise = reco
         .start()?
-        .into_result()
+        .once()
         .map_err(|err| error!("{}", err))
         .map(|msg| info!("result: {:?}", msg));
     tokio::run(promise);

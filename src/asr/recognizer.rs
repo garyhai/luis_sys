@@ -247,7 +247,7 @@ impl EventStream {
         self
     }
 
-    pub fn into_resulting(
+    pub fn resulting(
         self,
     ) -> impl Stream<Item = Recognition, Error = SpxError> {
         self.then(|res| {
@@ -259,11 +259,18 @@ impl EventStream {
         })
     }
 
-    pub fn into_result(
-        self,
-    ) -> impl Future<Item = Recognition, Error = SpxError> {
+    pub fn into_json(self) -> impl Stream<Item = String, Error = String> {
+        self.resulting().then(|res| match res {
+            Ok(v) => serde_json::to_string(&v).map_err(|err| err.to_string()),
+            Err(v) => Err(serde_json::to_string(&v)
+                .map_err(|err| err.to_string())
+                .expect("unexpected")),
+        })
+    }
+
+    pub fn once(self) -> impl Future<Item = Recognition, Error = SpxError> {
         let this = self.filter(Flags::Recognized);
-        this.into_resulting().into_future().then(|res| match res {
+        this.resulting().into_future().then(|res| match res {
             Ok((Some(reco), _)) => Ok(reco),
             Ok((None, _)) => Err(SpxError::NulError),
             Err((err, _)) => Err(err),
