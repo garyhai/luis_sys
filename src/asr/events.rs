@@ -95,6 +95,12 @@ pub struct Recognition {
     text: Option<String>,
 }
 
+impl Recognition {
+    pub fn text_only(self) -> String {
+        self.text.unwrap_or_else(|| String::new())
+    }
+}
+
 impl ToJson for Recognition {}
 
 #[derive(Debug, Default, Serialize)]

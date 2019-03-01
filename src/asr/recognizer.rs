@@ -259,7 +259,7 @@ impl EventStream {
         })
     }
 
-    pub fn into_json(self) -> impl Stream<Item = String, Error = String> {
+    pub fn json(self) -> impl Stream<Item = String, Error = String> {
         self.resulting().then(|res| match res {
             Ok(v) => serde_json::to_string(&v).map_err(|err| err.to_string()),
             Err(v) => Err(serde_json::to_string(&v)
@@ -268,13 +268,9 @@ impl EventStream {
         })
     }
 
-    pub fn once(self) -> impl Future<Item = Recognition, Error = SpxError> {
+    pub fn text(self) -> impl Stream<Item = String, Error = SpxError> {
         let this = self.filter(Flags::Recognized);
-        this.resulting().into_future().then(|res| match res {
-            Ok((Some(reco), _)) => Ok(reco),
-            Ok((None, _)) => Err(SpxError::NulError),
-            Err((err, _)) => Err(err),
-        })
+        this.resulting().map(|reco| reco.text_only())
     }
 }
 
@@ -282,17 +278,12 @@ impl Stream for EventStream {
     type Item = Event;
     type Error = ();
     fn poll(&mut self) -> Poll<Option<Event>, ()> {
-        if self.stopped {
-            return Ok(Async::Ready(None));
-        }
-        loop {
+        while !self.stopped {
             match try_ready!(self.source.poll()) {
                 Some(evt) => {
                     if evt.flag().contains(Flags::SessionStopped) {
                         self.stopped = true;
-                        return Ok(Async::Ready(Some(evt)));
                     }
-
                     if evt.flag().intersects(self.filter) {
                         return Ok(Async::Ready(Some(evt)));
                     }
@@ -300,6 +291,7 @@ impl Stream for EventStream {
                 None => return Ok(Async::Ready(None)),
             }
         }
+        Ok(Async::Ready(None))
     }
 }
 
@@ -342,8 +334,7 @@ fn fire_on_event(flag: Flags, hevent: SPXEVENTHANDLE, context: *mut c_void) {
     if let Some(mut arc) = weak_ptr.upgrade() {
         let sender = Arc::make_mut(&mut arc);
         if let Err(err) = sender.unbounded_send(evt) {
-            log::error!("failed to post event data by error: {}", err);
-            log::debug!("{:?}", err);
+            log::error!("failed to post {:?} event: {}", flag, err);
         }
     } else {
         log::error!("Recognizer instance is dropped!");

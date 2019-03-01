@@ -29,4 +29,4 @@ skeptic:
 	USE_SKEPTIC=1 cargo test $(CARGO_FLAGS)
 
 test: build
-	LD_LIBRARY_PATH="SpeechSDK/lib/x64" cargo test $(CARGO_FLAGS)
+	cargo test $(CARGO_FLAGS)

@@ -25,7 +25,7 @@ fn main() {
     recognize_once(&factory).map_err(|e| dbg!(e)).unwrap();
     recognize_stream(&factory).map_err(|e| dbg!(e)).unwrap();
     recognize_json(&factory).map_err(|e| dbg!(e)).unwrap();
-    recognize_future(&factory).map_err(|e| dbg!(e)).unwrap();
+    recognize_text(&factory).map_err(|e| dbg!(e)).unwrap();
     info!("Stop ASR test...");
 }
 
@@ -49,29 +49,34 @@ fn recognize_stream(factory: &Builder) -> Result {
 }
 
 fn recognize_json(factory: &Builder) -> Result {
-    info!("Asynchronous ASR, get streaming results");
+    info!("Asynchronous ASR, get json results");
     let mut reco = factory.build()?;
     let promise = reco
         .start()?
-        .into_json()
-        .map_err(|err| error!("{}", err))
+        .filter(Flags::Recognized)
+        .json()
         .for_each(|msg| {
             info!("result: {}", msg);
             Ok(())
-        });
+        })
+        .map_err(|err| error!("{}", err));
 
     tokio::run(promise);
     Ok(())
 }
 
-fn recognize_future(factory: &Builder) -> Result {
-    info!("Asynchronous ASR, get result by Future.");
+fn recognize_text(factory: &Builder) -> Result {
+    info!("Asynchronous ASR, get text only results.");
     let mut reco = factory.build()?;
-    let promise = reco
-        .start()?
-        .once()
-        .map_err(|err| error!("{}", err))
-        .map(|msg| info!("result: {:?}", msg));
+    let promise = reco.start()?;
+    let promise = promise
+        .text()
+        .for_each(move |msg| {
+            info!("result: {}", msg);
+            Ok(())
+        })
+        .then(move |_| reco.stop())
+        .map_err(|err| error!("{}", err));
     tokio::run(promise);
     Ok(())
 }
