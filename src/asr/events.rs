@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 use crate::{
     get_cf_string, hr,
     properities::{Properties, PropertyBag},

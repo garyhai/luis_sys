@@ -10,3 +10,4 @@
 - Fix bug of EventStream filter.
 - Rename `EventStream::into_json` to `json`
 - Change `EventStream::once` name and behavior.
+- Add push stream support.

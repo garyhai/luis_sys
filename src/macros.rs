@@ -18,6 +18,7 @@ macro_rules! DeriveHandle {
                 log::trace!("{}({}) is released",
                     stringify!($name),
                     self.handle as usize);
+                self.handle = crate::INVALID_HANDLE;
             }
         }
 

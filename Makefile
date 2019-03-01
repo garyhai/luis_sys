@@ -8,6 +8,7 @@ build:
 	cargo build $(CARGO_FLAGS)
 
 clean:
+	cargo clean
 	cargo clean --release
 
 clippy:

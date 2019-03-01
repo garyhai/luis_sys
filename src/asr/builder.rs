@@ -1,6 +1,6 @@
 use super::{events::Flags, recognizer::Recognizer};
 use crate::{
-    audio::AudioInput,
+    audio::{AudioConfig, AudioInput},
     hr,
     properities::{Properties, PropertyBag},
     speech_api::{
@@ -167,14 +167,15 @@ impl PropertyBag for RecognizerConfig {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Builder {
-    audio_file_path: String,
     flags: Flags,
     language: String,
     region: String,
     subscription_key: String,
     timeout: u32,
+    audio_file_path: String,
+    audio: AudioConfig,
 }
 
 impl Builder {
@@ -190,14 +191,19 @@ impl Builder {
 
     pub fn build(&self) -> Result<Recognizer> {
         let config = self.create_config()?;
-        let audio = self.create_audio()?;
+        let mut audio = self.create_audio()?;
         let mut rh = INVALID_HANDLE;
         hr!(recognizer_create_speech_recognizer_from_config(
             &mut rh,
             config.handle(),
             audio.handle(),
         ))?;
-        Ok(Recognizer::new(rh, self.flags, self.timeout))
+        Ok(Recognizer::new(
+            rh,
+            audio.take_stream(),
+            self.flags,
+            self.timeout,
+        ))
     }
 
     pub fn create_config(&self) -> Result<RecognizerConfig> {
@@ -210,13 +216,18 @@ impl Builder {
     }
 
     pub fn create_audio(&self) -> Result<AudioInput> {
-        AudioInput::from_wav_file(&self.audio_file_path)
+        if self.audio_file_path.is_empty() {
+            AudioInput::from_config(&self.audio)
+        } else {
+            AudioInput::from_wav_file(&self.audio_file_path)
+        }
     }
 
     create_prop!(subscription_key);
     create_prop!(region);
     create_prop!(language);
     create_prop!(audio_file_path);
+    create_prop!(audio, AudioConfig);
     create_prop!(flags, Flags);
     create_prop!(timeout, u32);
 }

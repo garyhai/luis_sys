@@ -3,6 +3,7 @@ use super::events::{
     Session,
 };
 use crate::{
+    audio::AudioStream,
     hr,
     speech_api::{
         connection_connected_set_callback,
@@ -27,7 +28,7 @@ use crate::{
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
-    try_ready, Async, Future, Poll, Stream,
+    try_ready, Async, Poll, Stream,
 };
 use std::{
     os::raw::c_void,
@@ -70,19 +71,36 @@ DeriveHandle!(
 
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
-    sink: Option<Arc<UnboundedSender<Event>>>,
     flags: Flags,
+    stream: Option<AudioStream>,
+    sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
 }
 
 impl Recognizer {
-    pub fn new(handle: SPXRECOHANDLE, flags: Flags, timeout: u32) -> Self {
+    pub fn new(
+        handle: SPXRECOHANDLE,
+        stream: Option<AudioStream>,
+        flags: Flags,
+        timeout: u32,
+    ) -> Self {
         Recognizer {
             handle,
             flags,
+            stream,
             timeout,
             sink: None,
         }
+    }
+
+    pub fn write_stream(&self, buffer: &mut [u8]) -> Result {
+        let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
+        stream.write(buffer)
+    }
+
+    pub fn close_stream(&self) -> Result {
+        let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
+        stream.close()
     }
 
     pub fn recognize(&self) -> Result<String> {
