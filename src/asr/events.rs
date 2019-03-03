@@ -2,7 +2,7 @@
 
 use crate::{
     get_cf_string, hr,
-    properities::{Properties, PropertyBag},
+    properties::{Properties, PropertyBag},
     speech_api::{
         recognizer_event_handle_is_valid, recognizer_event_handle_release,
         recognizer_recognition_event_get_offset,
@@ -12,7 +12,7 @@ use crate::{
         result_get_canceled_error_code, result_get_duration,
         result_get_no_match_reason, result_get_property_bag, result_get_reason,
         result_get_reason_canceled, result_get_result_id, result_get_text,
-        PropertyId, PropertyId_SpeechServiceResponse_JsonErrorDetails,
+        PropertyId_SpeechServiceResponse_JsonErrorDetails,
         Result_CancellationErrorCode,
         Result_CancellationErrorCode_CancellationErrorCode_NoError,
         Result_CancellationReason, Result_NoMatchReason, Result_Reason,
@@ -28,14 +28,14 @@ use crate::{
         Result_Reason_ResultReason_TranslatingSpeech, SPXEVENTHANDLE,
         SPXRESULTHANDLE,
     },
-    DeriveHandle, Handle, Result, SpxError, INVALID_HANDLE,
+    DeriveHandle, FlattenProps, Handle, Result, SpxError, INVALID_HANDLE,
 };
-use serde::{Serializer, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use std::time::Duration;
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Default, Deserialize)]
     pub struct Flags: u64 {
         const Connected = 0b0001;
         const Disconnected = 0b0010;
@@ -60,12 +60,12 @@ bitflags! {
 
 impl Serialize for Flags {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let display = format!("{:?}", self);
-            serializer.serialize_str(&display)
-        }
+    where
+        S: Serializer,
+    {
+        let display = format!("{:?}", self);
+        serializer.serialize_str(&display)
+    }
 }
 
 pub trait ToJson
@@ -85,15 +85,15 @@ where
 pub struct Recognition {
     flag: Flags,
     session: String,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<Result_Reason>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     offset: Option<Duration>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     duration: Option<Duration>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<String>,
 }
 
@@ -281,23 +281,7 @@ impl EventResult {
     }
 }
 
-impl PropertyBag for EventResult {
-    fn get_by_id(&self, id: PropertyId) -> Result<String> {
-        self.props.get_by_id(id)
-    }
-
-    fn get_by_name(&self, name: &str) -> Result<String> {
-        self.props.get_by_name(name)
-    }
-
-    fn put_by_id(&self, id: PropertyId, value: &str) -> Result<()> {
-        self.props.put_by_id(id, value)
-    }
-
-    fn put_by_name(&self, name: &str, value: &str) -> Result<()> {
-        self.props.put_by_name(name, value)
-    }
-}
+FlattenProps!(EventResult);
 
 impl AsrResult for EventResult {}
 impl RecognitionResult for EventResult {}

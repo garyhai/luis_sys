@@ -11,3 +11,4 @@
 - Rename `EventStream::into_json` to `json`
 - Change `EventStream::once` name and behavior.
 - Add push stream support.
+- Merge Builder into RecognizerConfig.

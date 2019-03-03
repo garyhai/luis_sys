@@ -99,3 +99,37 @@ macro_rules! ffi_get_string {
         }
     })
 }
+
+#[macro_export]
+macro_rules! FlattenProps {
+    ($name:ident) => {
+        impl crate::properties::PropertyBag for $name {
+            fn get_by_id(
+                &self,
+                id: crate::speech_api::PropertyId,
+            ) -> Result<String> {
+                self.props.get_by_id(id)
+            }
+
+            fn get_by_name(&self, name: &str) -> Result<String> {
+                self.props.get_by_name(name)
+            }
+
+            fn put_by_id<T: ToString>(
+                &self,
+                id: crate::speech_api::PropertyId,
+                value: T,
+            ) -> Result<()> {
+                self.props.put_by_id(id, value)
+            }
+
+            fn put_by_name<T: ToString>(
+                &self,
+                name: &str,
+                value: T,
+            ) -> Result<()> {
+                self.props.put_by_name(name, value)
+            }
+        }
+    };
+}

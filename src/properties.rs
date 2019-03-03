@@ -22,11 +22,11 @@ pub trait PropertyBag {
         Err(Unimplemented)
     }
 
-    fn put_by_id(&self, _id: PropertyId, _value: &str) -> Result<()> {
+    fn put_by_id<T: ToString>(&self, _id: PropertyId, _value: T) -> Result<()> {
         Err(Unimplemented)
     }
 
-    fn put_by_name(&self, _name: &str, _value: &str) -> Result<()> {
+    fn put_by_name<T: ToString>(&self, _name: &str, _value: T) -> Result<()> {
         Err(Unimplemented)
     }
 }
@@ -70,8 +70,8 @@ impl PropertyBag for Properties {
         }
     }
 
-    fn put_by_id(&self, id: PropertyId, value: &str) -> Result<()> {
-        let value = CString::new(value)?;
+    fn put_by_id<T: ToString>(&self, id: PropertyId, value: T) -> Result<()> {
+        let value = CString::new(value.to_string())?;
         hr! {
             property_bag_set_string(
                 self.handle,
@@ -80,9 +80,9 @@ impl PropertyBag for Properties {
         )}
     }
 
-    fn put_by_name(&self, name: &str, value: &str) -> Result<()> {
+    fn put_by_name<T: ToString>(&self, name: &str, value: T) -> Result<()> {
         let name = CString::new(name)?;
-        let value = CString::new(value)?;
+        let value = CString::new(value.to_string())?;
         hr! {
             property_bag_set_string(self.handle, -1, name.as_ptr(), value.as_ptr())
         }

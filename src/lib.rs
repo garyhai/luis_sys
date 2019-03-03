@@ -4,7 +4,7 @@ use std::{ffi::CStr, os::raw::c_char};
 
 pub(crate) mod audio;
 pub(crate) mod macros;
-pub(crate) mod properities;
+pub(crate) mod properties;
 pub(crate) mod speech_api;
 
 pub mod asr;

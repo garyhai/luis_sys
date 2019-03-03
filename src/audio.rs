@@ -1,23 +1,20 @@
-use crate::speech_api::*;
-use crate::{hr, SpxError, Handle, Result, SmartHandle, INVALID_HANDLE, DeriveHandle};
+use super::builder::AudioConfig;
+use crate::speech_api::{
+    audio_config_create_audio_input_from_stream,
+    audio_config_create_audio_input_from_wav_file_name,
+    audio_config_is_handle_valid, audio_config_release,
+    audio_stream_create_push_audio_input_stream,
+    audio_stream_format_create_from_default_input,
+    audio_stream_format_create_from_waveformat_pcm,
+    audio_stream_format_is_handle_valid, audio_stream_format_release,
+    audio_stream_is_handle_valid, audio_stream_release,
+    push_audio_input_stream_close, push_audio_input_stream_write,
+    SPXAUDIOCONFIGHANDLE, SPXAUDIOSTREAMFORMATHANDLE, SPXAUDIOSTREAMHANDLE,
+};
+use crate::{
+    hr, DeriveHandle, Handle, Result, SmartHandle, SpxError, INVALID_HANDLE,
+};
 use std::ffi::CString;
-
-#[derive(Debug)]
-pub struct AudioConfig {
-    pub rate: u32,
-    pub bits: u8,
-    pub channels: u8,
-}
-
-impl Default for AudioConfig {
-    fn default() -> Self {
-        AudioConfig {
-            rate: 16_000,
-            bits: 16,
-            channels: 1,
-        }
-    }
-}
 
 DeriveHandle!(
     AudioInput,
@@ -52,7 +49,10 @@ impl AudioInput {
             &mut handle,
             path.as_ptr(),
         ))?;
-        Ok(AudioInput{handle, stream: None})
+        Ok(AudioInput {
+            handle,
+            stream: None,
+        })
     }
 
     pub fn from_stream(stream: AudioStream) -> Result<Self> {
@@ -62,7 +62,7 @@ impl AudioInput {
             stream.handle()
         ))?;
         let stream = Some(stream);
-        Ok(AudioInput{handle, stream})
+        Ok(AudioInput { handle, stream })
     }
 }
 
