@@ -1,4 +1,5 @@
-/*! */
+/// Struct and trait to retrieve or set a property value from a property collection.
+///
 
 use crate::speech_api::*;
 use crate::{error::Unimplemented, hr, Result, SmartHandle};
@@ -9,6 +10,7 @@ use std::{
     ptr::null,
 };
 
+/// Behavior of the property bag.
 pub trait PropertyBag {
     fn get_by_id(&self, _id: PropertyId) -> Result<String> {
         Err(Unimplemented)
@@ -85,6 +87,7 @@ impl PropertyBag for Properties {
     }
 }
 
+/// Do nothing, just derive a Debug trait.
 impl fmt::Debug for Properties {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Properties {{handle: {}, ...}}.", self.handle as usize)

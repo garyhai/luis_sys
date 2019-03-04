@@ -1,8 +1,12 @@
 [package]
 name = "luis_sys"
-version = "0.3.0"
-authors = ["gary <gary@neunit.com>"]
+version = "0.3.1"
+authors = ["Gary Hai <gary@neunit.com>"]
 edition = "2018"
+description = "FFI bindings for Microsoft LUIS API."
+license = "MIT"
+repository = "https://github.com/garyhai/luis_sys"
+keywords = ["ffi", "speech", "deep-learning", "microsoft", "luis"]
 
 [dependencies]
 bitflags = "1.0.4"

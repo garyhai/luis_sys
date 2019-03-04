@@ -1,3 +1,5 @@
+/// Configurator and builder for speech or intent recognition.
+///
 use super::{
     audio::AudioInput,
     events::Flags,
@@ -12,6 +14,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::ffi::CString;
 
+/// Generate getter and setter for plain attribute with type conversition.
 macro_rules! DefineAttribute {
     ($name:ident, $setter:ident, $t:ty) => (
         pub fn $name(&self) -> &$t {
@@ -24,6 +27,7 @@ macro_rules! DefineAttribute {
     )
 }
 
+/// Declare for simple attribute with Copy trait.
 macro_rules! SimpleAttribute {
     ($name:ident, $setter:ident, $t:ty) => (
         pub fn $name(&self) -> &$t {
@@ -36,6 +40,7 @@ macro_rules! SimpleAttribute {
     )
 }
 
+/// Shortcut for common properties. The setter name with 'put_' prefix while the simple attribute with 'set_' prefix.
 macro_rules! DefineProperty {
     ($getter:ident, $setter:ident, $id:expr) => (
         pub fn $getter(&self) -> Result<String> {
@@ -56,6 +61,7 @@ DeriveHandle!(
     speech_config_is_handle_valid
 );
 
+/// Configurator.
 pub struct RecognizerConfig {
     flags: Flags,
     audio: AudioConfig,
@@ -83,6 +89,7 @@ impl RecognizerConfig {
         })
     }
 
+    /// Initiate with subscription key and region. If region is empty, use the default region "westus".
     pub fn from_subscription(subscription: &str, region: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let subscription = CString::new(subscription)?;
@@ -95,6 +102,12 @@ impl RecognizerConfig {
         RecognizerConfig::new(handle)
     }
 
+    /// Creates an instance of the speech config with specified authorization token and region.
+    /// Note: The caller needs to ensure that the authorization token is valid. Before the authorization token
+    /// expires, the caller needs to refresh it by calling this setter with a new valid token.
+    /// As configuration values are copied when creating a new recognizer, the new token value will not apply to recognizers that have already been created.
+    /// For recognizers that have been created before, you need to set authorization token of the corresponding recognizer
+    /// to refresh the token. Otherwise, the recognizers will encounter errors during recognition.
     pub fn from_authorization_token(token: &str, region: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let token = CString::new(token)?;
@@ -107,6 +120,14 @@ impl RecognizerConfig {
         RecognizerConfig::new(handle)
     }
 
+    /// Creates an instance of the speech config with specified endpoint and subscription.
+    /// This method is intended only for users who use a non-standard service endpoint.
+    /// Note: The query parameters specified in the endpoint URL are not changed, even if they are set by any other APIs.
+    /// For example, if language is defined in uri as query parameter "language=de-DE", and also set by CreateSpeechRecognizer("en-US"),
+    /// the language setting in uri takes precedence, and the effective language is "de-DE".
+    /// Only the parameters that are not specified in the endpoint URL can be set by other APIs.
+    /// Note: To use authorization token with FromEndpoint, pass an empty string to the subscription in the FromEndpoint method,
+    /// and then call SetAuthorizationToken() on the created SpeechConfig instance to use the authorization token.
     pub fn from_endpoint(endpoint: &str, subscription: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let endpoint = CString::new(endpoint)?;
@@ -119,6 +140,7 @@ impl RecognizerConfig {
         RecognizerConfig::new(handle)
     }
 
+    /// Generate a simple speech recognizer.
     pub fn recognizer(&self) -> Result<Recognizer> {
         let mut audio = self.audio_input()?;
         let mut rh = INVALID_HANDLE;
@@ -135,6 +157,7 @@ impl RecognizerConfig {
         ))
     }
 
+    /// Generate a recognizer with speech and intent recognition.
     pub fn intent_recognizer(&self) -> Result<Recognizer> {
         let mut audio = self.audio_input()?;
         let mut rh = INVALID_HANDLE;
@@ -154,6 +177,7 @@ impl RecognizerConfig {
         Ok(reco)
     }
 
+    /// Add intents from configuration to generated recognizer.
     fn apply_intents(&self, reco: &Recognizer) -> Result {
         if self.model_id.is_empty() {
             for ref phrase in &self.intents {
@@ -177,6 +201,7 @@ impl RecognizerConfig {
         Ok(())
     }
 
+    /// Create audio input object.
     pub fn audio_input(&self) -> Result<AudioInput> {
         if self.audio_file_path.is_empty() {
             AudioInput::from_config(&self.audio)
@@ -185,30 +210,41 @@ impl RecognizerConfig {
         }
     }
 
+    /// Bitmask flags for events handlers.
     SimpleAttribute!(flags, set_flags, Flags);
+    /// Timeout value for aynchronous operation.
     SimpleAttribute!(timeout, set_timeout, u32);
+    /// If audio file path is provided, audio input is the single file.
     DefineAttribute!(audio_file_path, set_audio_file_path, String);
+    /// Audio format of audio stream.
     DefineAttribute!(audio, set_audio, AudioConfig);
+    /// Language understanding model application id.
     DefineAttribute!(model_id, set_model_id, String);
+    /// If intents is empty, all the intents of the given model will be loaded.
+    /// If model is not set, content of intents is a set of phrases for simple intent matching.
     DefineAttribute!(intents, set_intents, Vec<String>);
 
+    /// Shortcut of intents vector operation.
     pub fn add_intent(&mut self, name: &str) -> Result<&mut Self> {
         self.intents.push(name.to_string());
         Ok(self)
     }
 
+    /// The input language of the speech recognizer.
     DefineProperty!(
         language,
         put_language,
         PropertyId_SpeechServiceConnection_RecoLanguage
     );
 
+    /// Detailed output format or not.
     DefineProperty!(
         detailed_result,
         put_detailed_result,
         PropertyId_SpeechServiceResponse_RequestDetailedResultTrueFalse
     );
 
+    /// Subset of proxy configuration
     pub fn put_proxy(&mut self, proxy: &ProxyConfig) -> Result<&mut Self> {
         self.props.put_by_id(
             PropertyId_SpeechServiceConnection_ProxyHostName,
@@ -233,6 +269,8 @@ impl RecognizerConfig {
 
 FlattenProps!(RecognizerConfig);
 
+/// Creates an audio stream format object with the specified PCM waveformat characteristics.
+/// Currently, only WAV / PCM with 16-bit samples, 16 kHz sample rate, and a single channel (Mono) is supported.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct AudioConfig {
     pub rate: u32,

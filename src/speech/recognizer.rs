@@ -1,3 +1,5 @@
+/// Recognizer for speech with intent and translation support.
+///
 use super::{
     audio::AudioStream,
     events::{
@@ -20,6 +22,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
+/// The event callback definition macro.
 macro_rules! DefCallback {
     ($name:ident, $flag:expr) => {
         #[no_mangle]
@@ -55,6 +58,7 @@ SmartHandle!(
 );
 
 impl IntentTrigger {
+    /// Phrase as singleton intent.
     pub fn from_phrase(phrase: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let phrase = CString::new(phrase)?;
@@ -65,6 +69,7 @@ impl IntentTrigger {
         Ok(IntentTrigger::new(handle))
     }
 
+    /// Load intent from language understanding model.
     pub fn from_model(model: &Model, name: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let name = CString::new(name)?;
@@ -76,6 +81,7 @@ impl IntentTrigger {
         Ok(IntentTrigger::new(handle))
     }
 
+    /// Load all intents from the model.
     pub fn from_model_all(model: &Model) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         hr!(intent_trigger_create_from_language_understanding_model(
@@ -95,6 +101,7 @@ SmartHandle!(
 );
 
 impl Model {
+    /// Creates a language understanding model using the specified endpoint url.
     pub fn from_uri(uri: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let uri = CString::new(uri)?;
@@ -105,6 +112,7 @@ impl Model {
         Ok(Model::new(handle))
     }
 
+    /// Creates a language understanding model using the specified app id.
     pub fn from_app_id(id: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let id = CString::new(id)?;
@@ -115,6 +123,7 @@ impl Model {
         Ok(Model::new(handle))
     }
 
+    /// Creates a language understanding model using the specified hostname, subscription key and application id.
     pub fn from_subscription(
         key: &str,
         id: &str,
@@ -141,6 +150,8 @@ DeriveHandle!(
     recognizer_handle_is_valid
 );
 
+/// In addition to performing speech-to-text recognition, the IntentRecognizer extracts structured information
+/// about the intent of the speaker, which can be used to drive further actions using dedicated intent triggers
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     flags: Flags,
@@ -150,6 +161,7 @@ pub struct Recognizer {
 }
 
 impl Recognizer {
+    /// Constructor.
     pub fn new(
         handle: SPXRECOHANDLE,
         stream: Option<AudioStream>,
@@ -165,16 +177,19 @@ impl Recognizer {
         }
     }
 
+    /// Proxy the write function of push stream.
     pub fn write_stream(&self, buffer: &mut [u8]) -> Result {
         let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
         stream.write(buffer)
     }
 
+    /// Close the push stream gracefully.
     pub fn close_stream(&self) -> Result {
         let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
         stream.close()
     }
 
+    /// Blocked mode for once recognition.
     pub fn recognize(&self) -> Result<String> {
         let mut hres = INVALID_HANDLE;
         hr!(recognizer_recognize_once(self.handle, &mut hres))?;
@@ -186,22 +201,27 @@ impl Recognizer {
         }
     }
 
+    /// Pause the progress of recognition.
     pub fn pause(&self) -> Result {
         hr!(recognizer_disable(self.handle))
     }
 
+    /// Resume paused session.
     pub fn resume(&self) -> Result {
         hr!(recognizer_enable(self.handle))
     }
 
+    /// Check started by event sink handle.
     pub fn started(&self) -> bool {
         self.sink.is_some()
     }
 
+    /// Start the recognition session with configuration present.
     pub fn start(&mut self) -> Result<EventStream> {
         self.start_flags(Flags::empty())
     }
 
+    /// Stop the sesstion.
     pub fn stop(&mut self) -> Result {
         let mut h = INVALID_HANDLE;
         hr!(recognizer_stop_continuous_recognition_async(
@@ -213,6 +233,7 @@ impl Recognizer {
         Ok(())
     }
 
+    /// Start recognition with additional flags.
     pub fn start_flags(&mut self, flags: Flags) -> Result<EventStream> {
         if self.started() {
             return Err(SpxError::AlreadyExists);
@@ -316,6 +337,7 @@ impl Recognizer {
         Ok(reception)
     }
 
+    /// Add generated intent trigger.
     pub fn add_intent(&self, id: &str, trigger: &IntentTrigger) -> Result {
         if id.is_empty() {
             hr!(intent_recognizer_add_intent(
@@ -334,6 +356,7 @@ impl Recognizer {
     }
 }
 
+/// Promise of recognition event stream.
 pub struct EventStream {
     filter: Flags,
     source: UnboundedReceiver<Event>,
@@ -341,6 +364,7 @@ pub struct EventStream {
 }
 
 impl EventStream {
+    /// Constructor with filter.
     pub fn new(source: UnboundedReceiver<Event>, filter: Flags) -> Self {
         EventStream {
             filter,
@@ -349,11 +373,13 @@ impl EventStream {
         }
     }
 
+    /// Define the new filter to pick out special events.
     pub fn filter(mut self, flags: Flags) -> Self {
         self.filter = flags;
         self
     }
 
+    /// Result streaming of event object.
     pub fn resulting(
         self,
     ) -> impl Stream<Item = Recognition, Error = SpxError> {
@@ -366,6 +392,7 @@ impl EventStream {
         })
     }
 
+    /// Convert the event object streamto JSON string stream.
     pub fn json(self) -> impl Stream<Item = String, Error = String> {
         self.resulting().then(|res| match res {
             Ok(v) => serde_json::to_string(&v).map_err(|err| err.to_string()),
@@ -375,12 +402,14 @@ impl EventStream {
         })
     }
 
+    /// Speech recognition text only.
     pub fn text(self) -> impl Stream<Item = String, Error = SpxError> {
         let this = self.filter(Flags::Recognized);
         this.resulting().map(|reco| reco.text_only())
     }
 }
 
+/// The streaming implementation of futures.
 impl Stream for EventStream {
     type Item = Event;
     type Error = ();

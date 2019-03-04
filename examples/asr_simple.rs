@@ -16,7 +16,7 @@ fn main() {
 }
 
 fn recognize_test() -> Result {
-    let flags = Flags::Recognization
+    let flags = Flags::Recognition
         | Flags::Session
         | Flags::Connection
         | Flags::SpeechDetection

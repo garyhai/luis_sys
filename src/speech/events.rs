@@ -1,5 +1,8 @@
 #![allow(non_upper_case_globals)]
 
+/// Events and results.
+/// 
+
 use crate::{
     get_cf_string, hr,
     properties::{Properties, PropertyBag},
@@ -10,6 +13,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use std::time::Duration;
 
+/// Bitmask for events callbacks and reason of result.
 bitflags! {
     #[derive(Default, Deserialize)]
     pub struct Flags: u64 {
@@ -24,7 +28,7 @@ bitflags! {
         const SpeechDetection = 0b0011_0000;
         const Recognizing = 0b0100_0000;
         const Recognized = 0b1000_0000;
-        const Recognization = 0b1100_0000;
+        const Recognition = 0b1100_0000;
         const Speech = 0b0001_0000_0000;
         const Intent = 0b0010_0000_0000;
         const Translation = 0b0100_0000_0000;
@@ -34,6 +38,7 @@ bitflags! {
     }
 }
 
+/// Make output more readable.
 impl Serialize for Flags {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -44,6 +49,7 @@ impl Serialize for Flags {
     }
 }
 
+/// Convert from underlying integer const of result reason.
 impl From<Result_Reason> for Flags {
     fn from(reason: Result_Reason) -> Self {
         match reason {
@@ -81,6 +87,7 @@ impl From<Result_Reason> for Flags {
     }
 }
 
+/// For stringify output.
 pub trait ToJson
 where
     Self: Serialize + Sized,
@@ -94,6 +101,7 @@ where
     }
 }
 
+/// Make NoMatch reason readable.
 #[derive(Debug, Serialize)]
 pub enum Matching {
     Matched,
@@ -102,6 +110,7 @@ pub enum Matching {
     InitialBabbleTimeout,
 }
 
+/// Convert from underlying integer const of no match reason.
 impl From<Result_NoMatchReason> for Matching {
     fn from(reason: Result_NoMatchReason) -> Self {
         match reason {
@@ -122,6 +131,7 @@ impl From<Result_NoMatchReason> for Matching {
     }
 }
 
+/// Output of recognition
 #[derive(Debug, Default, Serialize)]
 pub struct Recognition {
     flag: Flags,
@@ -145,6 +155,7 @@ pub struct Recognition {
 }
 
 impl Recognition {
+    /// Get only the speech recognition text.
     pub fn text_only(self) -> String {
         self.text.unwrap_or_else(|| String::new())
     }
@@ -152,6 +163,7 @@ impl Recognition {
 
 impl ToJson for Recognition {}
 
+/// Refine the cancellation.
 #[derive(Debug, Default, Serialize)]
 pub struct CancellationError {
     reason: Result_CancellationReason,
@@ -160,6 +172,7 @@ pub struct CancellationError {
 }
 impl ToJson for CancellationError {}
 
+/// Refine the NoMatch reason.
 #[derive(Debug, Serialize)]
 pub struct NoMatchError {
     reason: Matching,
@@ -173,16 +186,21 @@ DeriveHandle!(
     recognizer_event_handle_is_valid
 );
 
+/// Generic event fired by LUIS engine.
 pub struct Event {
+    /// Underlying handle.
     handle: SPXEVENTHANDLE,
+    /// Flag of the event source.
     flag: Flags,
 }
 
 impl Event {
+    /// Constructor.
     pub fn new(flag: Flags, handle: SPXEVENTHANDLE) -> Self {
         Event { flag, handle }
     }
 
+    /// Yield the output of event.
     pub fn into_result(self) -> Result<Recognition> {
         let mut r = Recognition::default();
         let flag = self.flag;
@@ -219,7 +237,7 @@ impl Event {
 
         r.matching = Some(Matching::Matched);
 
-        if reason.intersects(Flags::Recognization) {
+        if reason.intersects(Flags::Recognition) {
             r.text = Some(er.text()?);
             r.duration = Some(er.duration()?);
             r.offset = Some(er.offset()?);
@@ -236,6 +254,7 @@ impl Event {
     }
 }
 
+/// Base trait of an event.
 impl Session for Event {
     fn flag(&self) -> Flags {
         self.flag
@@ -246,6 +265,7 @@ impl Session for Event {
     }
 }
 
+/// Trait fo speech stop-end detection.
 impl Detection for Event {}
 
 pub trait Session: Handle<SPXEVENTHANDLE> {
@@ -278,6 +298,7 @@ DeriveHandle!(
     recognizer_result_handle_is_valid
 );
 
+/// Event may produce result or error.
 pub struct EventResult {
     reason: Flags,
     handle: SPXRESULTHANDLE,
@@ -285,6 +306,7 @@ pub struct EventResult {
 }
 
 impl EventResult {
+    /// Create result with event source flag, then patch the flag with reason.
     pub fn new(flag: Flags, handle: SPXRESULTHANDLE) -> Result<Self> {
         let mut reason: Result_Reason = 0;
         hr!(result_get_reason(handle, &mut reason))?;
@@ -300,6 +322,7 @@ impl EventResult {
         })
     }
 
+    /// Consume the Event and create its result.
     pub fn from_event(evt: Event) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         hr!(recognizer_recognition_event_get_result(
@@ -312,13 +335,17 @@ impl EventResult {
 
 FlattenProps!(EventResult);
 
+/// Base trait of event resuult.
 impl AsrResult for EventResult {
     fn reason(&self) -> Flags {
         self.reason
     }
 }
+/// Recognition result trait.
 impl RecognitionResult for EventResult {}
+/// Cancellation reason or error.
 impl CancellationResult for EventResult {}
+/// NoMatch reason.
 impl NoMatchResult for EventResult {}
 
 pub trait AsrResult: Handle<SPXRESULTHANDLE> + PropertyBag {

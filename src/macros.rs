@@ -1,5 +1,6 @@
-// Quick and dirty "DRY"
+/// Macros for crate local usage of D.R.Y.
 
+/// A quick and dirty implementation of derive Handle trait.
 #[macro_export]
 macro_rules! DeriveHandle {
     ( $name:ident, $t:ty, $release:ident $(, $check:ident)? ) => (
@@ -29,6 +30,7 @@ macro_rules! DeriveHandle {
     )
 }
 
+/// Compact version to wrap underlying handle.
 #[macro_export]
 macro_rules! SmartHandle {
     ( $name:ident, $t:ty, $release:ident, $check:ident ) => {
@@ -61,6 +63,7 @@ macro_rules! SmartHandle {
             }
         }
 
+        /// Syntactic sugar for dereference.
         impl std::ops::Deref for $name {
             type Target = $t;
 
@@ -69,12 +72,14 @@ macro_rules! SmartHandle {
             }
         }
 
+        /// Convert from underlying handle.
         impl From<$t> for $name {
             fn from(handle: $t) -> Self {
                 Self::new(handle)
             }
         }
 
+        /// For somewhere need default implementation.
         impl Default for $name {
             fn default() -> Self {
                 Self::new(crate::INVALID_HANDLE as $t)
@@ -83,6 +88,7 @@ macro_rules! SmartHandle {
     };
 }
 
+/// From hresult to Result.
 #[macro_export]
 macro_rules! hr {
     ($ffi:expr) => {
@@ -90,6 +96,7 @@ macro_rules! hr {
     };
 }
 
+/// Pre-alloc buffer to retrieve string of ffi.
 #[macro_export]
 macro_rules! ffi_get_string {
     ($f:ident, $h:expr $(, $sz:expr)?) => ({
@@ -108,6 +115,7 @@ macro_rules! ffi_get_string {
     })
 }
 
+/// Export internal properties.
 #[macro_export]
 macro_rules! FlattenProps {
     ($name:ident) => {

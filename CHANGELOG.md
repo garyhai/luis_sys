@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2019-3-4
+
+### Added
+
+- Documentation and manifest for publishing.
+
 ## [0.3.0] - 2019-3-4
 
 ### Changed

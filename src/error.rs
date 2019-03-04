@@ -1,3 +1,5 @@
+/// Common error definitions of the crate for SPX API errors and others.
+
 use crate::speech::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
 use serde_json::{Error as JsonError, Value};
