@@ -4,8 +4,8 @@
 
 ### Changed
 
-- Remove auto-generated file "bindings.rs".
-- Ignore "bindings.rs" and "asr_simple.rs".
+- Ignore modification of "asr_simple.rs" for risk of keys leak.
+- Re-add "bindings.rs" to lock version in phase of development.
 
 ## [0.3.1] - 2019-3-4
 
