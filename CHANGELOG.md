@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Remove auto-generated file "bindings.rs".
+- Ignore "bindings.rs" and "asr_simple.rs".
+
 ## [0.3.1] - 2019-3-4
 
 ### Added
