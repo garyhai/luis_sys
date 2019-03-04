@@ -3,35 +3,17 @@ use super::events::{
     Session,
 };
 use crate::{
-    audio::AudioStream,
-    hr,
-    speech_api::{
-        connection_connected_set_callback,
-        connection_disconnected_set_callback, connection_from_recognizer,
-        connection_handle_release, recognizer_async_handle_is_valid,
-        recognizer_async_handle_release, recognizer_canceled_set_callback,
-        recognizer_disable, recognizer_enable, recognizer_handle_is_valid,
-        recognizer_handle_release, recognizer_recognize_once,
-        recognizer_recognized_set_callback,
-        recognizer_recognizing_set_callback,
-        recognizer_session_started_set_callback,
-        recognizer_session_stopped_set_callback,
-        recognizer_speech_end_detected_set_callback,
-        recognizer_speech_start_detected_set_callback,
-        recognizer_start_continuous_recognition_async,
-        recognizer_start_continuous_recognition_async_wait_for,
-        recognizer_stop_continuous_recognition_async, session_handle_is_valid,
-        session_handle_release, Result_Reason_ResultReason_RecognizedSpeech,
-        SPXASYNCHANDLE, SPXEVENTHANDLE, SPXRECOHANDLE, SPXSESSIONHANDLE,
-    },
-    DeriveHandle, Result, SmartHandle, SpxError, INVALID_HANDLE,
+    audio::AudioStream, hr, speech_api::*, DeriveHandle, Handle, Result,
+    SmartHandle, SpxError, INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
     try_ready, Async, Poll, Stream,
 };
 use std::{
+    ffi::CString,
     os::raw::c_void,
+    ptr::null,
     sync::{Arc, Weak},
 };
 
@@ -61,6 +43,93 @@ SmartHandle!(
     session_handle_release,
     session_handle_is_valid
 );
+
+SmartHandle!(
+    IntentTrigger,
+    SPXTRIGGERHANDLE,
+    intent_trigger_handle_release,
+    intent_trigger_handle_is_valid
+);
+
+impl IntentTrigger {
+    pub fn from_phrase(phrase: &str) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        let phrase = CString::new(phrase)?;
+        hr!(intent_trigger_create_from_phrase(
+            &mut handle,
+            phrase.as_ptr()
+        ))?;
+        Ok(IntentTrigger::new(handle))
+    }
+
+    pub fn from_model(model: &Model, name: &str) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        let name = CString::new(name)?;
+        hr!(intent_trigger_create_from_language_understanding_model(
+            &mut handle,
+            model.handle(),
+            name.as_ptr()
+        ))?;
+        Ok(IntentTrigger::new(handle))
+    }
+
+    pub fn from_model_all(model: &Model) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        hr!(intent_trigger_create_from_language_understanding_model(
+            &mut handle,
+            model.handle(),
+            null()
+        ))?;
+        Ok(IntentTrigger::new(handle))
+    }
+}
+
+SmartHandle!(
+    Model,
+    SPXLUMODELHANDLE,
+    language_understanding_model__handle_release,
+    language_understanding_model_handle_is_valid
+);
+
+impl Model {
+    pub fn from_uri(uri: &str) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        let uri = CString::new(uri)?;
+        hr!(language_understanding_model_create_from_uri(
+            &mut handle,
+            uri.as_ptr()
+        ))?;
+        Ok(Model::new(handle))
+    }
+
+    pub fn from_app_id(id: &str) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        let id = CString::new(id)?;
+        hr!(language_understanding_model_create_from_app_id(
+            &mut handle,
+            id.as_ptr()
+        ))?;
+        Ok(Model::new(handle))
+    }
+
+    pub fn from_subscription(
+        key: &str,
+        id: &str,
+        region: &str,
+    ) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        let key = CString::new(key)?;
+        let id = CString::new(id)?;
+        let region = CString::new(region)?;
+        hr!(language_understanding_model_create_from_subscription(
+            &mut handle,
+            key.as_ptr(),
+            id.as_ptr(),
+            region.as_ptr()
+        ))?;
+        Ok(Model::new(handle))
+    }
+}
 
 DeriveHandle!(
     Recognizer,
@@ -106,8 +175,8 @@ impl Recognizer {
     pub fn recognize(&self) -> Result<String> {
         let mut hres = INVALID_HANDLE;
         hr!(recognizer_recognize_once(self.handle, &mut hres))?;
-        let rr = EventResult::from_handle(hres)?;
-        if rr.reason()? == Result_Reason_ResultReason_RecognizedSpeech {
+        let rr = EventResult::new(Flags::empty(), hres)?;
+        if rr.reason().contains(Flags::Recognized) {
             Ok(String::from(rr.text()?))
         } else {
             Err(SpxError::Unknown(String::from("unhandled")))
@@ -242,6 +311,23 @@ impl Recognizer {
         }
 
         Ok(reception)
+    }
+
+    pub fn add_intent(&self, id: &str, trigger: &IntentTrigger) -> Result {
+        if id.is_empty() {
+            hr!(intent_recognizer_add_intent(
+                self.handle,
+                null(),
+                trigger.handle()
+            ))
+        } else {
+            let id = CString::new(id)?;
+            hr!(intent_recognizer_add_intent(
+                self.handle,
+                id.as_ptr(),
+                trigger.handle()
+            ))
+        }
     }
 }
 

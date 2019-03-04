@@ -3,32 +3,8 @@
 use crate::{
     get_cf_string, hr,
     properties::{Properties, PropertyBag},
-    speech_api::{
-        recognizer_event_handle_is_valid, recognizer_event_handle_release,
-        recognizer_recognition_event_get_offset,
-        recognizer_recognition_event_get_result,
-        recognizer_result_handle_is_valid, recognizer_result_handle_release,
-        recognizer_session_event_get_session_id,
-        result_get_canceled_error_code, result_get_duration,
-        result_get_no_match_reason, result_get_property_bag, result_get_reason,
-        result_get_reason_canceled, result_get_result_id, result_get_text,
-        PropertyId_SpeechServiceResponse_JsonErrorDetails,
-        Result_CancellationErrorCode,
-        Result_CancellationErrorCode_CancellationErrorCode_NoError,
-        Result_CancellationReason, Result_NoMatchReason, Result_Reason,
-        Result_Reason_ResultReason_Canceled,
-        Result_Reason_ResultReason_NoMatch,
-        Result_Reason_ResultReason_RecognizedIntent,
-        Result_Reason_ResultReason_RecognizedSpeech,
-        Result_Reason_ResultReason_RecognizingIntent,
-        Result_Reason_ResultReason_RecognizingSpeech,
-        Result_Reason_ResultReason_SynthesizingAudio,
-        Result_Reason_ResultReason_SynthesizingAudioComplete,
-        Result_Reason_ResultReason_TranslatedSpeech,
-        Result_Reason_ResultReason_TranslatingSpeech, SPXEVENTHANDLE,
-        SPXRESULTHANDLE,
-    },
-    DeriveHandle, FlattenProps, Handle, Result, SpxError, INVALID_HANDLE,
+    speech_api::*,
+    DeriveHandle, FlattenProps, Handle, Result, INVALID_HANDLE,
 };
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
@@ -68,6 +44,43 @@ impl Serialize for Flags {
     }
 }
 
+impl From<Result_Reason> for Flags {
+    fn from(reason: Result_Reason) -> Self {
+        match reason {
+            Result_Reason_ResultReason_NoMatch => Flags::NoMatch,
+            Result_Reason_ResultReason_Canceled => Flags::Canceled,
+            Result_Reason_ResultReason_RecognizingSpeech => {
+                Flags::Recognizing | Flags::Speech
+            }
+            Result_Reason_ResultReason_RecognizedSpeech => {
+                Flags::Recognized | Flags::Speech
+            }
+            Result_Reason_ResultReason_RecognizingIntent => {
+                Flags::Recognizing | Flags::Intent
+            }
+            Result_Reason_ResultReason_RecognizedIntent => {
+                Flags::Recognized | Flags::Intent
+            }
+            Result_Reason_ResultReason_TranslatingSpeech => {
+                Flags::Recognizing | Flags::Translation
+            }
+            Result_Reason_ResultReason_TranslatedSpeech => {
+                Flags::Recognized | Flags::Translation
+            }
+            Result_Reason_ResultReason_SynthesizingAudio => {
+                Flags::Recognizing | Flags::Synthesis
+            }
+            Result_Reason_ResultReason_SynthesizingAudioComplete => {
+                Flags::Recognized | Flags::Synthesis
+            }
+            _ => {
+                log::error!("Unknown reason to convert Flags!");
+                Flags::empty()
+            }
+        }
+    }
+}
+
 pub trait ToJson
 where
     Self: Serialize + Sized,
@@ -81,6 +94,34 @@ where
     }
 }
 
+#[derive(Debug, Serialize)]
+pub enum Matching {
+    Matched,
+    NotRecognized,
+    InitialSilenceTimeout,
+    InitialBabbleTimeout,
+}
+
+impl From<Result_NoMatchReason> for Matching {
+    fn from(reason: Result_NoMatchReason) -> Self {
+        match reason {
+            Result_NoMatchReason_NoMatchReason_NotRecognized => {
+                Matching::NotRecognized
+            }
+            Result_NoMatchReason_NoMatchReason_InitialSilenceTimeout => {
+                Matching::InitialSilenceTimeout
+            }
+            Result_NoMatchReason_NoMatchReason_InitialBabbleTimeout => {
+                Matching::InitialBabbleTimeout
+            }
+            _ => {
+                log::error!("Unknown no match reason: {}", reason);
+                Matching::NotRecognized
+            }
+        }
+    }
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct Recognition {
     flag: Flags,
@@ -88,13 +129,19 @@ pub struct Recognition {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<Result_Reason>,
+    reason: Option<Flags>,
     #[serde(skip_serializing_if = "Option::is_none")]
     offset: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     duration: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    matching: Option<Matching>,
 }
 
 impl Recognition {
@@ -113,9 +160,9 @@ pub struct CancellationError {
 }
 impl ToJson for CancellationError {}
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct NoMatchError {
-    reason: Result_NoMatchReason,
+    reason: Matching,
 }
 impl ToJson for NoMatchError {}
 
@@ -152,9 +199,15 @@ impl Event {
 
         let er = EventResult::from_event(self)?;
         r.id = Some(er.id()?);
-        r.reason = Some(er.reason()?);
+        let reason = er.reason();
+        r.reason = Some(reason);
 
-        if flag.intersects(Flags::Canceled) {
+        if reason.intersects(Flags::NoMatch) {
+            r.matching = Some(er.no_match_reason()?);
+            return Ok(r);
+        }
+
+        if reason.intersects(Flags::Canceled) {
             if er.code()?
                 == Result_CancellationErrorCode_CancellationErrorCode_NoError
             {
@@ -164,14 +217,22 @@ impl Event {
             }
         }
 
-        if flag.intersects(Flags::Recognization) {
+        r.matching = Some(Matching::Matched);
+
+        if reason.intersects(Flags::Recognization) {
             r.text = Some(er.text()?);
             r.duration = Some(er.duration()?);
             r.offset = Some(er.offset()?);
-            return Ok(r);
+            r.intent = Some(er.intent()?);
         }
 
-        Err(SpxError::Unknown(String::from("unknown flag")))
+        if reason.intersects(Flags::Intent) {
+            r.intent = Some(er.intent()?);
+            r.details = Some(er.details()?);
+        }
+
+        Ok(r)
+        // Err(SpxError::Unknown(String::from("unknown flag")))
     }
 }
 
@@ -218,18 +279,22 @@ DeriveHandle!(
 );
 
 pub struct EventResult {
-    flag: Flags,
+    reason: Flags,
     handle: SPXRESULTHANDLE,
     props: Properties,
 }
 
 impl EventResult {
     pub fn new(flag: Flags, handle: SPXRESULTHANDLE) -> Result<Self> {
+        let mut reason: Result_Reason = 0;
+        hr!(result_get_reason(handle, &mut reason))?;
+        let reason = flag | Flags::from(reason);
+
         let mut hprops = INVALID_HANDLE;
         hr!(result_get_property_bag(handle, &mut hprops))?;
         let props = Properties::new(hprops);
         Ok(EventResult {
-            flag,
+            reason,
             handle,
             props,
         })
@@ -243,47 +308,15 @@ impl EventResult {
         ))?;
         EventResult::new(evt.flag(), handle)
     }
-
-    #[allow(non_upper_case_globals)]
-    pub fn from_handle(handle: SPXRESULTHANDLE) -> Result<Self> {
-        let mut er = EventResult::new(Flags::empty(), handle)?;
-        let flag = match er.reason()? {
-            Result_Reason_ResultReason_NoMatch => Flags::NoMatch,
-            Result_Reason_ResultReason_Canceled => Flags::Canceled,
-            Result_Reason_ResultReason_RecognizingSpeech => {
-                Flags::Recognizing | Flags::Speech
-            }
-            Result_Reason_ResultReason_RecognizedSpeech => {
-                Flags::Recognized | Flags::Speech
-            }
-            Result_Reason_ResultReason_RecognizingIntent => {
-                Flags::Recognizing | Flags::Intent
-            }
-            Result_Reason_ResultReason_RecognizedIntent => {
-                Flags::Recognized | Flags::Intent
-            }
-            Result_Reason_ResultReason_TranslatingSpeech => {
-                Flags::Recognizing | Flags::Translation
-            }
-            Result_Reason_ResultReason_TranslatedSpeech => {
-                Flags::Recognized | Flags::Translation
-            }
-            Result_Reason_ResultReason_SynthesizingAudio => {
-                Flags::Recognizing | Flags::Synthesis
-            }
-            Result_Reason_ResultReason_SynthesizingAudioComplete => {
-                Flags::Recognized | Flags::Synthesis
-            }
-            _ => Flags::empty(),
-        };
-        er.flag = flag;
-        Ok(er)
-    }
 }
 
 FlattenProps!(EventResult);
 
-impl AsrResult for EventResult {}
+impl AsrResult for EventResult {
+    fn reason(&self) -> Flags {
+        self.reason
+    }
+}
 impl RecognitionResult for EventResult {}
 impl CancellationResult for EventResult {}
 impl NoMatchResult for EventResult {}
@@ -293,16 +326,16 @@ pub trait AsrResult: Handle<SPXRESULTHANDLE> + PropertyBag {
         get_cf_string(result_get_result_id, self.handle(), 40)
     }
 
-    fn reason(&self) -> Result<Result_Reason> {
-        let mut rr = 0;
-        hr!(result_get_reason(self.handle(), &mut rr))?;
-        Ok(rr)
-    }
+    fn reason(&self) -> Flags;
 }
 
 pub trait RecognitionResult: AsrResult {
     fn text(&self) -> Result<String> {
         get_cf_string(result_get_text, self.handle(), 1024)
+    }
+
+    fn intent(&self) -> Result<String> {
+        get_cf_string(intent_result_get_intent_id, self.handle(), 1024)
     }
 
     fn duration(&self) -> Result<Duration> {
@@ -315,6 +348,12 @@ pub trait RecognitionResult: AsrResult {
         let mut offset = 0u64;
         hr!(result_get_duration(self.handle(), &mut offset))?;
         Ok(Duration::from_nanos(offset * 100))
+    }
+
+    fn details(&self) -> Result<String> {
+        self.get_by_id(
+            PropertyId_LanguageUnderstandingServiceResponse_JsonResult,
+        )
     }
 }
 
@@ -331,14 +370,14 @@ pub trait CancellationResult: AsrResult {
         Ok(n)
     }
 
-    fn details(&self) -> Result<String> {
+    fn error_details(&self) -> Result<String> {
         self.get_by_id(PropertyId_SpeechServiceResponse_JsonErrorDetails)
     }
 
     fn cancellation_error(&self) -> Result<Recognition> {
         let reason = self.cancellation_reason()?;
         let code = self.code()?;
-        let details = self.details()?;
+        let details = self.error_details()?;
         Err(CancellationError {
             reason,
             code,
@@ -349,10 +388,10 @@ pub trait CancellationResult: AsrResult {
 }
 
 pub trait NoMatchResult: AsrResult {
-    fn no_match_reason(&self) -> Result<Result_NoMatchReason> {
+    fn no_match_reason(&self) -> Result<Matching> {
         let mut n = 0 as Result_NoMatchReason;
         hr!(result_get_no_match_reason(self.handle(), &mut n))?;
-        Ok(n)
+        Ok(Matching::from(n))
     }
 
     fn no_match_error(&self) -> Result<Recognition> {

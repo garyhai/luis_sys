@@ -1,25 +1,37 @@
-use super::{events::Flags, recognizer::Recognizer};
+use super::{events::Flags, recognizer::*};
 use crate::{
     audio::AudioInput,
     hr,
     properties::{Properties, PropertyBag},
-    speech_api::{
-        recognizer_create_speech_recognizer_from_config,
-        speech_config_from_authorization_token, speech_config_from_endpoint,
-        speech_config_from_subscription, speech_config_get_property_bag,
-        speech_config_is_handle_valid, speech_config_release,
-        PropertyId_SpeechServiceConnection_ProxyHostName,
-        PropertyId_SpeechServiceConnection_ProxyPassword,
-        PropertyId_SpeechServiceConnection_ProxyPort,
-        PropertyId_SpeechServiceConnection_ProxyUserName,
-        PropertyId_SpeechServiceConnection_RecoLanguage,
-        PropertyId_SpeechServiceResponse_RequestDetailedResultTrueFalse,
-        SPXSPEECHCONFIGHANDLE, UINT32_MAX,
-    },
+    speech_api::*,
     DeriveHandle, FlattenProps, Handle, Result, INVALID_HANDLE,
 };
 use serde::{Deserialize, Serialize};
 use std::ffi::CString;
+
+macro_rules! DefineAttribute {
+    ($name:ident, $setter:ident, $t:ty) => (
+        pub fn $name(&self) -> &$t {
+            &self.$name
+        }
+        pub fn $setter<T: Into<$t>>(&mut self, v: T) -> &mut Self {
+            self.$name = v.into();
+            self
+        }
+    )
+}
+
+macro_rules! SimpleAttribute {
+    ($name:ident, $setter:ident, $t:ty) => (
+        pub fn $name(&self) -> &$t {
+            &self.$name
+        }
+        pub fn $setter(&mut self, v: $t) -> &mut Self {
+            self.$name = v;
+            self
+        }
+    )
+}
 
 macro_rules! DefineProperty {
     ($getter:ident, $setter:ident, $id:expr) => (
@@ -45,6 +57,8 @@ pub struct RecognizerConfig {
     flags: Flags,
     audio: AudioConfig,
     audio_file_path: String,
+    model_id: String,
+    intents: Vec<String>,
     timeout: u32,
     handle: SPXSPEECHCONFIGHANDLE,
     props: Properties,
@@ -60,6 +74,8 @@ impl RecognizerConfig {
             flags: Flags::Recognized,
             audio: AudioConfig::default(),
             audio_file_path: String::new(),
+            model_id: String::new(),
+            intents: Vec::new(),
             timeout: UINT32_MAX,
         })
     }
@@ -111,9 +127,51 @@ impl RecognizerConfig {
         Ok(Recognizer::new(
             rh,
             audio.take_stream(),
-            self.flags,
+            self.flags | Flags::Speech,
             self.timeout,
         ))
+    }
+
+    pub fn intent_recognizer(&self) -> Result<Recognizer> {
+        let mut audio = self.audio_input()?;
+        let mut rh = INVALID_HANDLE;
+        hr!(recognizer_create_intent_recognizer_from_config(
+            &mut rh,
+            self.handle,
+            audio.handle(),
+        ))?;
+
+        let reco = Recognizer::new(
+            rh,
+            audio.take_stream(),
+            self.flags | Flags::Intent,
+            self.timeout,
+        );
+        self.apply_intents(&reco)?;
+        Ok(reco)
+    }
+
+    fn apply_intents(&self, reco: &Recognizer) -> Result {
+        if self.model_id.is_empty() {
+            for ref phrase in &self.intents {
+                let trigger = IntentTrigger::from_phrase(phrase)?;
+                reco.add_intent(phrase, &trigger)?;
+            }
+            return Ok(());
+        }
+
+        let model = Model::from_app_id(&self.model_id)?;
+        if self.intents.is_empty() {
+            let trigger = IntentTrigger::from_model_all(&model)?;
+            return reco.add_intent("", &trigger);
+        }
+
+        for ref intent in &self.intents {
+            let trigger = IntentTrigger::from_model(&model, intent)?;
+            reco.add_intent(intent, &trigger)?;
+        }
+
+        Ok(())
     }
 
     pub fn audio_input(&self) -> Result<AudioInput> {
@@ -124,54 +182,31 @@ impl RecognizerConfig {
         }
     }
 
-    pub fn flags(&self) -> Flags {
-        self.flags
-    }
-    pub fn set_flags(&mut self, v: Flags) -> Result<&mut Self> {
-        self.flags = v;
-        Ok(self)
-    }
+    SimpleAttribute!(flags, set_flags, Flags);
+    SimpleAttribute!(timeout, set_timeout, u32);
+    DefineAttribute!(audio_file_path, set_audio_file_path, String);
+    DefineAttribute!(audio, set_audio, AudioConfig);
+    DefineAttribute!(model_id, set_model_id, String);
+    DefineAttribute!(intents, set_intents, Vec<String>);
 
-    pub fn timeout(&self) -> u32 {
-        self.timeout
-    }
-    pub fn set_timeout(&mut self, v: u32) -> Result<&mut Self> {
-        self.timeout = v;
-        Ok(self)
-    }
-
-    pub fn audio_file_path(&self) -> Result<&str> {
-        Ok(self.audio_file_path.as_str())
-    }
-    pub fn set_audio_file_path(&mut self, v: &str) -> Result<&mut Self> {
-        self.audio_file_path = v.to_string();
-        Ok(self)
-    }
-
-    pub fn audio(&self) -> Result<AudioConfig> {
-        Ok(self.audio)
-    }
-    pub fn set_audio<T: Into<AudioConfig>>(
-        &mut self,
-        v: T,
-    ) -> Result<&mut Self> {
-        self.audio = v.into();
+    pub fn add_intent(&mut self, name: &str) -> Result<&mut Self> {
+        self.intents.push(name.to_string());
         Ok(self)
     }
 
     DefineProperty!(
         language,
-        set_language,
+        put_language,
         PropertyId_SpeechServiceConnection_RecoLanguage
     );
 
     DefineProperty!(
         detailed_result,
-        set_detailed_result,
+        put_detailed_result,
         PropertyId_SpeechServiceResponse_RequestDetailedResultTrueFalse
     );
 
-    pub fn set_proxy(&mut self, proxy: &ProxyConfig) -> Result<&mut Self> {
+    pub fn put_proxy(&mut self, proxy: &ProxyConfig) -> Result<&mut Self> {
         self.props.put_by_id(
             PropertyId_SpeechServiceConnection_ProxyHostName,
             &proxy.host_name,

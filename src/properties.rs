@@ -1,10 +1,6 @@
 /*! */
 
-use crate::speech_api::{
-    property_bag_free_string, property_bag_get_string, property_bag_is_valid,
-    property_bag_release, property_bag_set_string, PropertyId,
-    SPXPROPERTYBAGHANDLE,
-};
+use crate::speech_api::*;
 use crate::{error::Unimplemented, hr, Result, SmartHandle};
 use std::{
     ffi::{CStr, CString},

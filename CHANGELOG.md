@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2019-3-4
+
+### Changed
+
+- Makefile `run` command add `LD_LIBRARY_PATH` environment avoid lib version conflication.
+- Add intent recognization function.
+- Change `reason` of `EventResult` to `Flags` type.
+- Change some weird constant types to readable enum types.
+- Do not deglob import of speech_api! (match for unimported consts have potential bugs).
+
 ## [0.1.0] - 2019-3-1
 
 ### Changed

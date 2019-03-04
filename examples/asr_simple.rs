@@ -22,20 +22,32 @@ fn recognize_test() -> Result {
         | Flags::SpeechDetection
         | Flags::Canceled;
     let mut factory = RecognizerConfig::from_subscription(
-        "d5504c34dab74874930d3fe9f2925578",
+        "1ddf18885bff46c09f862b418d5ff37a",
+        // "d5504c34dab74874930d3fe9f2925578",  // speech only
         "eastasia",
     )?;
+
+    // let intents = vec![
+    //     "否定".to_string(),
+    //     "肯定".to_string(),
+    //     "祝福".to_string(),
+    // ];
     factory
-        .set_language("zh-CN")?
-        .set_audio_file_path("examples/chinese_test.wav")?
-        .set_flags(flags)?;
-    recognize_once(&factory).map_err(|e| dbg!(e))?;
-    recognize_stream(&factory).map_err(|e| dbg!(e))?;
+        .set_flags(flags)
+        .set_audio_file_path("examples/chinese_test.wav")
+        .set_model_id("b68bca70-e540-44bd-82bf-044e73f8e52c")
+        // .set_intents(intents)
+        .put_language("zh-CN")?
+        .put_detailed_result(true)?;
+
+    // recognize_once(&factory).map_err(|e| dbg!(e))?;
+    // recognize_stream(&factory).map_err(|e| dbg!(e))?;
     recognize_json(&factory).map_err(|e| dbg!(e))?;
-    recognize_text(&factory).map_err(|e| dbg!(e))?;
+    // recognize_text(&factory).map_err(|e| dbg!(e))?;
     Ok(())
 }
 
+#[allow(dead_code)]
 fn recognize_once(factory: &RecognizerConfig) -> Result {
     info!("Synchronous ASR ");
     let recognizer = factory.recognizer()?;
@@ -44,9 +56,11 @@ fn recognize_once(factory: &RecognizerConfig) -> Result {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn recognize_stream(factory: &RecognizerConfig) -> Result {
     info!("Asynchronous ASR, streaming Event object");
-    let mut reco = factory.recognizer()?;
+    let mut reco = factory.intent_recognizer()?;
+    // let mut reco = factory.recognizer()?;
     let promise = reco.start()?.for_each(|msg| {
         info!("result: {:?}", msg.into_result());
         Ok(())
@@ -55,12 +69,13 @@ fn recognize_stream(factory: &RecognizerConfig) -> Result {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn recognize_json(factory: &RecognizerConfig) -> Result {
     info!("Asynchronous ASR, get json results");
-    let mut reco = factory.recognizer()?;
+    let mut reco = factory.intent_recognizer()?;
     let promise = reco
         .start()?
-        .filter(Flags::Recognized)
+        .filter(Flags::Recognized | Flags::SpeechDetection)
         .json()
         .for_each(|msg| {
             info!("result: {}", msg);
@@ -72,6 +87,7 @@ fn recognize_json(factory: &RecognizerConfig) -> Result {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn recognize_text(factory: &RecognizerConfig) -> Result {
     info!("Asynchronous ASR, get text only results.");
     let mut reco = factory.recognizer()?;

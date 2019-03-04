@@ -24,7 +24,7 @@ release:
 	cargo build --release $(CARGO_FLAGS)
 
 run:
-	cargo run --example asr_simple
+	LD_LIBRARY_PATH="SpeechSDK/lib/x86:$(LD_LIBRARY_PATH)" cargo run --example asr_simple
 
 skeptic:
 	USE_SKEPTIC=1 cargo test $(CARGO_FLAGS)
