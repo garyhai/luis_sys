@@ -1,4 +1,4 @@
-/// Macros for crate local usage of D.R.Y.
+//! Macros for crate local usage of D.R.Y.
 
 /// A quick and dirty implementation of derive Handle trait.
 #[macro_export]

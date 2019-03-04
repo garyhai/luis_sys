@@ -1,5 +1,5 @@
-/// Recognizer for speech with intent and translation support.
-///
+//! Recognizer for speech with intent and translation support.
+
 use super::{
     audio::AudioStream,
     events::{

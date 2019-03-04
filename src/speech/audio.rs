@@ -1,5 +1,5 @@
-/// Represents specific audio configuration, such as microphone, file, or custom audio streams.
-/// 
+//! Represents specific audio configuration, such as microphone, file, or custom audio streams.
+
 
 use super::builder::AudioConfig;
 use crate::speech_api::*;

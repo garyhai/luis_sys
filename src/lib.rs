@@ -1,6 +1,6 @@
-/// FFI bindings for Microsoft LUIS API.
-/// 
-/// Current version support only LUIS Speech API.
+//! FFI bindings for Microsoft LUIS API.
+//! 
+//! Current version support only LUIS Speech API.
 
 #[macro_use]
 extern crate bitflags;

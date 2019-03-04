@@ -2,10 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2019-3-4
+
 ### Changed
 
 - Ignore modification of "asr_simple.rs" for risk of keys leak.
 - Re-add "bindings.rs" to lock version in phase of development.
+- Add more fields in manifest file.
+- Fix errors of inner line doc comments.
 
 ## [0.3.1] - 2019-3-4
 

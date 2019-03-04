@@ -1,4 +1,4 @@
-/// Recognition, intent analysis, translation of speech.
+//! Recognition, intent analysis, translation of speech.
 
 pub mod builder;
 pub mod recognizer;

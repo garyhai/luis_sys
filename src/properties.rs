@@ -1,5 +1,4 @@
-/// Struct and trait to retrieve or set a property value from a property collection.
-///
+//! Struct and trait to retrieve or set a property value from a property collection.
 
 use crate::speech_api::*;
 use crate::{error::Unimplemented, hr, Result, SmartHandle};

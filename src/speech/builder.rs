@@ -1,5 +1,5 @@
-/// Configurator and builder for speech or intent recognition.
-///
+//! Configurator and builder for speech or intent recognition.
+
 use super::{
     audio::AudioInput,
     events::Flags,

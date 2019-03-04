@@ -1,4 +1,4 @@
-/// Common error definitions of the crate for SPX API errors and others.
+//! Common error definitions of the crate for SPX API errors and others.
 
 use crate::speech::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
