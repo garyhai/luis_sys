@@ -1,10 +1,13 @@
-use super::events::{
-    AsrResult, Event, EventResult, Flags, Recognition, RecognitionResult,
-    Session,
+use super::{
+    audio::AudioStream,
+    events::{
+        AsrResult, Event, EventResult, Flags, Recognition, RecognitionResult,
+        Session,
+    },
 };
 use crate::{
-    audio::AudioStream, hr, speech_api::*, DeriveHandle, Handle, Result,
-    SmartHandle, SpxError, INVALID_HANDLE,
+    hr, speech_api::*, DeriveHandle, Handle, Result, SmartHandle, SpxError,
+    INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},

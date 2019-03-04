@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2019-3-4
+
+### Changed
+
+- Change mod name from `asr` to `speech`.
+
 ## [0.2.1] - 2019-3-4
 
 ### Changed

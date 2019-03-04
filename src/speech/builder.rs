@@ -1,6 +1,9 @@
-use super::{events::Flags, recognizer::*};
-use crate::{
+use super::{
     audio::AudioInput,
+    events::Flags,
+    recognizer::{IntentTrigger, Model, Recognizer},
+};
+use crate::{
     hr,
     properties::{Properties, PropertyBag},
     speech_api::*,

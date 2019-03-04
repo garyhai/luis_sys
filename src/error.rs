@@ -1,4 +1,4 @@
-use crate::asr::events::{CancellationError, NoMatchError, ToJson};
+use crate::speech::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
 use serde_json::{Error as JsonError, Value};
 use std::{ffi, string::FromUtf8Error};

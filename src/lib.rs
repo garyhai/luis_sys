@@ -2,19 +2,18 @@
 extern crate bitflags;
 use std::{ffi::CStr, os::raw::c_char};
 
-pub(crate) mod audio;
 pub(crate) mod macros;
 pub(crate) mod properties;
 pub(crate) mod speech_api;
 
-pub mod asr;
+pub mod speech;
 pub mod error;
 
-pub use asr::*;
+pub use speech::*;
 pub use error::SpxError;
 pub type Result<T = (), E = SpxError> = std::result::Result<T, E>;
-
 pub use speech_api::{SPXHANDLE, SPXHR};
+
 pub(crate) const INVALID_HANDLE: SPXHANDLE = std::usize::MAX as SPXHANDLE;
 
 pub trait Handle<T = SPXHANDLE> {
