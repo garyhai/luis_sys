@@ -3,12 +3,14 @@
 #[macro_export]
 macro_rules! DeriveHandle {
     ( $name:ident, $t:ty, $release:ident $(, $check:ident)? ) => (
+        /// Derive the trait used to get underlying handle value.
         impl crate::Handle<$t> for $name {
             fn handle(&self) -> $t {
                 self.handle
             }
         }
 
+        /// Drop the handle by underlying destructor.
         impl Drop for $name {
             fn drop(&mut self) {
                 unsafe {
@@ -22,6 +24,7 @@ macro_rules! DeriveHandle {
             }
         }
 
+        /// Enable threading operation.
         unsafe impl Send for $name {}
     )
 }
@@ -30,20 +33,25 @@ macro_rules! DeriveHandle {
 macro_rules! SmartHandle {
     ( $name:ident, $t:ty, $release:ident, $check:ident ) => {
         crate::DeriveHandle!($name, $t, $release, $check);
+
+        /// Wrap the underlying handle with common methods.
         pub struct $name {
             handle: $t,
         }
 
         impl $name {
+            /// Constructor.
             pub fn new(handle: $t) -> Self {
                 $name { handle }
             }
 
+            /// Validator.
             #[allow(dead_code)]
             pub fn is_valid(&self) -> bool {
                 unsafe { $check(self.handle) }
             }
 
+            /// Decstructor.
             #[allow(dead_code)]
             pub fn release(&mut self) {
                 if self.is_valid() {

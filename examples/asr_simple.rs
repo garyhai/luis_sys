@@ -22,9 +22,8 @@ fn recognize_test() -> Result {
         | Flags::SpeechDetection
         | Flags::Canceled;
     let mut factory = RecognizerConfig::from_subscription(
-        "1ddf18885bff46c09f862b418d5ff37a",
-        // "d5504c34dab74874930d3fe9f2925578",  // speech only
-        "eastasia",
+        "YourLanguageUnderstandingSubscriptionKey",
+        "YourLanguageUnderstandingServiceRegion",
     )?;
 
     // let intents = vec![
@@ -35,7 +34,7 @@ fn recognize_test() -> Result {
     factory
         .set_flags(flags)
         .set_audio_file_path("examples/chinese_test.wav")
-        .set_model_id("b68bca70-e540-44bd-82bf-044e73f8e52c")
+        .set_model_id("YourLanguageUnderstandingAppId")
         // .set_intents(intents)
         .put_language("zh-CN")?
         .put_detailed_result(true)?;
