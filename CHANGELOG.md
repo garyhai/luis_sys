@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Change the crate category to valid **"external-ffi-bindings"**.
+
 ## [0.3.2] - 2019-3-4
 
 ### Changed
