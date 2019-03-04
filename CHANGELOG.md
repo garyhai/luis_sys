@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2019-3-4
+
+### Changed
+
+- Remove `rustc-hash` crate to wait for new version of HashMap.
+- Update SpeechSDK to version 1.3.1
+
 ## [0.2.0] - 2019-3-4
 
 ### Changed

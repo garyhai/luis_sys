@@ -810,11 +810,18 @@ pub const PropertyId_SpeechServiceResponse_RequestProfanityFilterTrueFalse:
     PropertyId = 4001;
 pub const PropertyId_SpeechServiceResponse_JsonResult: PropertyId = 5000;
 pub const PropertyId_SpeechServiceResponse_JsonErrorDetails: PropertyId = 5001;
+pub const PropertyId_SpeechServiceResponse_RecognitionLatencyMs: PropertyId =
+    5002;
 pub const PropertyId_CancellationDetails_Reason: PropertyId = 6000;
 pub const PropertyId_CancellationDetails_ReasonText: PropertyId = 6001;
 pub const PropertyId_CancellationDetails_ReasonDetailedText: PropertyId = 6002;
 pub const PropertyId_LanguageUnderstandingServiceResponse_JsonResult:
     PropertyId = 7000;
+pub const PropertyId_AudioConfig_DeviceNameForCapture: PropertyId = 8000;
+pub const PropertyId_AudioConfig_NumberOfChannelsForCapture: PropertyId = 8001;
+pub const PropertyId_AudioConfig_SampleRateForCapture: PropertyId = 8002;
+pub const PropertyId_AudioConfig_BitsPerSampleForCapture: PropertyId = 8003;
+pub const PropertyId_AudioConfig_AudioSource: PropertyId = 8004;
 pub type PropertyId = u32;
 extern "C" {
     #[link_name = "\u{1}_intent_result_get_intent_id"]
@@ -1131,6 +1138,13 @@ extern "C" {
     ) -> SPXHR;
 }
 extern "C" {
+    #[link_name = "\u{1}_audio_config_create_audio_input_from_a_microphone"]
+    pub fn audio_config_create_audio_input_from_a_microphone(
+        haudioConfig: *mut SPXAUDIOCONFIGHANDLE,
+        deviceName: *const ::std::os::raw::c_char,
+    ) -> SPXHR;
+}
+extern "C" {
     #[link_name = "\u{1}_audio_config_create_audio_input_from_wav_file_name"]
     pub fn audio_config_create_audio_input_from_wav_file_name(
         haudioConfig: *mut SPXAUDIOCONFIGHANDLE,
@@ -1163,6 +1177,13 @@ extern "C" {
 extern "C" {
     #[link_name = "\u{1}_audio_config_release"]
     pub fn audio_config_release(haudioConfig: SPXAUDIOCONFIGHANDLE) -> SPXHR;
+}
+extern "C" {
+    #[link_name = "\u{1}_audio_config_get_property_bag"]
+    pub fn audio_config_get_property_bag(
+        haudioConfig: SPXAUDIOCONFIGHANDLE,
+        hpropbag: *mut SPXPROPERTYBAGHANDLE,
+    ) -> SPXHR;
 }
 extern "C" {
     #[link_name = "\u{1}_recognizer_create_speech_recognizer_from_config"]

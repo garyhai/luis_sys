@@ -169,6 +169,14 @@ enum class PropertyId
     SpeechServiceResponse_JsonErrorDetails = 5001,
 
     /// <summary>
+    /// The recognition latency in milliseconds. Read-only, available on final speech/translation/intent results.
+    /// This measures the latency between when an audio input is received by the SDK, and the moment the final result is received from the service.
+    /// The SDK computes the time difference between the last audio fragment from the audio input that is contributing to the final result, and the time the final result is received from the speech service.
+    /// Added in version 1.3.0.
+    /// </summary>
+    SpeechServiceResponse_RecognitionLatencyMs = 5002,
+
+    /// <summary>
     /// The cancellation reason. Currently unused.
     /// </summary>
     CancellationDetails_Reason = 6000,
@@ -186,8 +194,39 @@ enum class PropertyId
     /// <summary>
     /// The Language Understanding Service response output (in JSON format). Available via <see cref="IntentRecognitionResult.Properties"/>.
     /// </summary>
-    LanguageUnderstandingServiceResponse_JsonResult = 7000
+    LanguageUnderstandingServiceResponse_JsonResult = 7000,
 
+    /// <summary>
+    /// The device name for audio capture. Under normal circumstances, you shouldn't have to
+    /// use this property directly.
+    /// Instead, use <see cref="AudioConfig::FromMicrophoneInput"/>.
+    /// NOTE: This property id was added in version 1.3.0.
+    /// </summary>
+    AudioConfig_DeviceNameForCapture = 8000,
+
+    /// <summary>
+    /// The number of channels for audio capture. Internal use only.
+    /// NOTE: This property id was added in version 1.3.0.
+    /// </summary>
+    AudioConfig_NumberOfChannelsForCapture = 8001,
+
+    /// <summary>
+    /// The sample rate (in Hz) for audio capture. Internal use only.
+    /// NOTE: This property id was added in version 1.3.0.
+    /// </summary>
+    AudioConfig_SampleRateForCapture = 8002,
+
+    /// <summary>
+    /// The number of bits of each sample for audio capture. Internal use only.
+    /// NOTE: This property id was added in version 1.3.0.
+    /// </summary>
+    AudioConfig_BitsPerSampleForCapture = 8003,
+
+    /// <summary>
+    /// The audio source. Allowed values are "microphone", "file", and "stream".
+    /// Added in version 1.3.0.
+    /// </summary>
+    AudioConfig_AudioSource = 8004
 };
 
 enum class OutputFormat
@@ -252,7 +291,21 @@ enum class ResultReason
     /// <summary>
     /// Indicates the synthesized audio is now complete for this phrase.
     /// </summary>
-    SynthesizingAudioCompleted = 9
+    SynthesizingAudioCompleted = 9,
+
+    /// <summary>
+    /// Indicates the speech result contains (unverified) keyword text.
+    /// Note: Keyword spotting functionality is only available on the Cognitive Services Device SDK. This functionality is currently not included in the SDK itself.
+    /// Added in version 1.3.0
+    /// </summary>
+    RecognizingKeyword = 10,
+
+    /// <summary>
+    /// Indicates that keyword recognition completed recognizing the given keyword.
+    /// Note: Keyword spotting functionality is only available on the Cognitive Services Device SDK. This functionality is currently not included in the SDK itself.
+    /// Added in version 1.3.0
+    /// </summary>
+    RecognizedKeyword = 11
 };
 
 /// <summary>

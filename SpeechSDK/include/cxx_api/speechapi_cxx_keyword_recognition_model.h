@@ -16,7 +16,8 @@ namespace CognitiveServices {
 namespace Speech {
 
 /// <summary>
-/// Represents keyword recognition model used w/ StartKeywordRecognitionAsync methods.
+/// Represents keyword recognition model used with StartKeywordRecognitionAsync methods.
+/// Note: Keyword spotting functionality is only available on the Cognitive Services Device SDK. This functionality is currently not included in the SDK itself.
 /// </summary>
 class KeywordRecognitionModel
 {

@@ -14,7 +14,7 @@ SPXAPI__(const char*) property_bag_get_string(SPXPROPERTYBAGHANDLE hpropbag, int
 SPXAPI property_bag_free_string(const char* value);
 SPXAPI property_bag_release(SPXPROPERTYBAGHANDLE hpropbag);
 
-// NOTE: Currenlty this enum is duplicated with C++ side,
+// NOTE: Currently this enum is duplicated with C++ side,
 // because SWIG cannot properly resolve conditional compilation.
 #ifndef __cplusplus
 enum  PropertyId
@@ -45,12 +45,19 @@ enum  PropertyId
 
     SpeechServiceResponse_JsonResult = 5000,
     SpeechServiceResponse_JsonErrorDetails = 5001,
+    SpeechServiceResponse_RecognitionLatencyMs = 5002,
 
     CancellationDetails_Reason = 6000,
     CancellationDetails_ReasonText = 6001,
     CancellationDetails_ReasonDetailedText = 6002,
 
-    LanguageUnderstandingServiceResponse_JsonResult = 7000
+    LanguageUnderstandingServiceResponse_JsonResult = 7000,
+
+    AudioConfig_DeviceNameForCapture = 8000,
+    AudioConfig_NumberOfChannelsForCapture = 8001,
+    AudioConfig_SampleRateForCapture = 8002,
+    AudioConfig_BitsPerSampleForCapture = 8003,
+    AudioConfig_AudioSource = 8004
 };
 #endif
 

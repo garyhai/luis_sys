@@ -8,10 +8,10 @@
 
 #include <string>
 
-#include "speechapi_cxx_properties.h"
+#include <speechapi_cxx_properties.h>
 #include <speechapi_cxx_string_helpers.h>
-#include "speechapi_c_common.h"
-#include "speechapi_c_speech_config.h"
+#include <speechapi_c_common.h>
+#include <speechapi_c_speech_config.h>
 
 namespace Microsoft {
 namespace CognitiveServices {
@@ -22,7 +22,6 @@ namespace Speech {
 /// </summary>
 class SpeechConfig
 {
-friend class PropertyCollection;
 public:
     /// <summary>
     /// Internal operator used to get underlying handle value.
@@ -46,6 +45,11 @@ public:
 
     /// <summary>
     /// Creates an instance of the speech config with specified authorization token and region.
+    /// Note: The caller needs to ensure that the authorization token is valid. Before the authorization token
+    /// expires, the caller needs to refresh it by calling this setter with a new valid token.
+    /// As configuration values are copied when creating a new recognizer, the new token value will not apply to recognizers that have already been created.
+    /// For recognizers that have been created before, you need to set authorization token of the corresponding recognizer
+    /// to refresh the token. Otherwise, the recognizers will encounter errors during recognition.
     /// </summary>
     /// <param name="authToken">The authorization token.</param>
     /// <param name="region">The region name (see the <a href="https://aka.ms/csspeech/region">region page</a>).</param>
@@ -66,6 +70,8 @@ public:
     /// For example, if language is defined in uri as query parameter "language=de-DE", and also set by CreateSpeechRecognizer("en-US"),
     /// the language setting in uri takes precedence, and the effective language is "de-DE".
     /// Only the parameters that are not specified in the endpoint URL can be set by other APIs.
+    /// Note: To use authorization token with FromEndpoint, pass an empty string to the subscription in the FromEndpoint method,
+    /// and then call SetAuthorizationToken() on the created SpeechConfig instance to use the authorization token.
     /// </summary>
     /// <param name="endpoint">The service endpoint to connect to.</param>
     /// <param name="subscription">The subscription key.</param>
@@ -118,6 +124,11 @@ public:
 
     /// <summary>
     /// Sets the authorization token to connect to the service.
+    /// Note: The caller needs to ensure that the authorization token is valid. Before the authorization token
+    /// expires, the caller needs to refresh it by calling this setter with a new valid token.
+    /// As configuration values are copied when creating a new recognizer, the new token value will not apply to recognizers that have already been created.
+    /// For recognizers that have been created before, you need to set authorization token of the corresponding recognizer
+    /// to refresh the token. Otherwise, the recognizers will encounter errors during recognition.
     /// </summary>
     /// <param name="token">The authorization token.</param>
     void SetAuthorizationToken(const SPXSTRING& token)
@@ -176,20 +187,29 @@ public:
     /// Sets proxy configuration
     /// Added in version 1.1.0
     /// </summary>
-    /// <param name="proxyHostName">The host name of the proxy server</param>
+    /// <param name="proxyHostName">The host name of the proxy server, without the protocol scheme (http://)</param>
     /// <param name="proxyPort">The port number of the proxy server</param>
     /// <param name="proxyUserName">The user name of the proxy server</param>
     /// <param name="proxyPassword">The password of the proxy server</param>
     void SetProxy(const SPXSTRING& proxyHostName, uint32_t proxyPort, const SPXSTRING& proxyUserName = SPXSTRING(), const SPXSTRING& proxyPassword = SPXSTRING())
     {
+        SPX_IFTRUE_THROW_HR(proxyHostName.empty(), SPXERR_INVALID_ARG);
+        SPX_IFTRUE_THROW_HR(proxyPort == 0, SPXERR_INVALID_ARG);
+
         property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyHostName), nullptr,
             Utils::ToUTF8(proxyHostName).c_str());
         property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyPort), nullptr,
             std::to_string(proxyPort).c_str());
-        property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyUserName), nullptr,
-            Utils::ToUTF8(proxyUserName).c_str());
-        property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyPassword), nullptr,
-            Utils::ToUTF8(proxyPassword).c_str());
+        if (!proxyUserName.empty())
+        {
+            property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyUserName), nullptr,
+                Utils::ToUTF8(proxyUserName).c_str());
+        }
+        if (!proxyPassword.empty())
+        {
+            property_bag_set_string(m_propertybag, static_cast<int>(PropertyId::SpeechServiceConnection_ProxyPassword), nullptr,
+                Utils::ToUTF8(proxyPassword).c_str());
+        }
     }
 
     /// <summary>
@@ -210,7 +230,7 @@ public:
     SPXSTRING GetProperty(const SPXSTRING& name) const
     {
         const char* value = property_bag_get_string(m_propertybag, -1, Utils::ToUTF8(name).c_str(), "");
-        return Utils::ToSPXString(CopyAndFreePropertyString(value));
+        return Utils::ToSPXString(Utils::CopyAndFreePropertyString(value));
     }
 
     /// <summary>
@@ -221,7 +241,7 @@ public:
     SPXSTRING GetProperty(PropertyId id) const
     {
         const char* value = property_bag_get_string(m_propertybag, static_cast<int>(id), nullptr, "");
-        return Utils::ToSPXString(CopyAndFreePropertyString(value));
+        return Utils::ToSPXString(Utils::CopyAndFreePropertyString(value));
     }
 
     /// <summary>
@@ -271,12 +291,6 @@ protected:
 private:
     DISABLE_COPY_AND_MOVE(SpeechConfig);
 
-    inline static std::string CopyAndFreePropertyString(const char* value)
-    {
-        std::string copy = (value == nullptr) ? "" : value;
-        property_bag_free_string(value);
-        return copy;
-    }
-};
+    };
 
 }}}
