@@ -1,10 +1,10 @@
 //! Represents specific audio configuration, such as microphone, file, or custom audio streams.
 
-
 use super::builder::AudioConfig;
 use crate::speech_api::*;
 use crate::{
-    hr, DeriveHandle, Handle, Result, SmartHandle, SpxError, INVALID_HANDLE,
+    hr, properties::Properties, DeriveHandle, FlattenProps, Handle, Result,
+    SmartHandle, SpxError, INVALID_HANDLE,
 };
 use std::ffi::CString;
 
@@ -21,9 +21,21 @@ pub struct AudioInput {
     handle: SPXAUDIOCONFIGHANDLE,
     /// Placeholder of audio stream.
     stream: Option<AudioStream>,
+    /// Internal properties bag.
+    props: Properties,
 }
 
 impl AudioInput {
+    fn new(handle: SPXAUDIOCONFIGHANDLE) -> Result<Self> {
+        let mut hprops = INVALID_HANDLE;
+        hr!(audio_config_get_property_bag(handle, &mut hprops))?;
+        Ok(AudioInput {
+            handle,
+            props: Properties::new(hprops),
+            stream: None,
+        })
+    }
+
     /// Drop AudioInput and yield an audio stream.
     pub fn into_stream(mut self) -> Result<AudioStream> {
         self.stream.take().ok_or(SpxError::NulError)
@@ -48,10 +60,7 @@ impl AudioInput {
             &mut handle,
             path.as_ptr(),
         ))?;
-        Ok(AudioInput {
-            handle,
-            stream: None,
-        })
+        AudioInput::new(handle)
     }
 
     /// Convert AudioStream to AudioInput. AudioStream is kept in AudioInput instance.
@@ -62,9 +71,13 @@ impl AudioInput {
             stream.handle()
         ))?;
         let stream = Some(stream);
-        Ok(AudioInput { handle, stream })
+        let mut audio = AudioInput::new(handle)?;
+        audio.stream = stream;
+        Ok(audio)
     }
 }
+
+FlattenProps!(AudioInput);
 
 /// Support only push stream.
 SmartHandle!(

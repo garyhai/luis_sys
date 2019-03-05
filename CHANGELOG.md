@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.3] - 2019-3-5
+
 ### Changed
 
 - Change the crate category to valid **"external-ffi-bindings"**.
+- Add properties bag for AudioInput (SpeechSDK v1.3.1).
 
 ## [0.3.2] - 2019-3-4
 
