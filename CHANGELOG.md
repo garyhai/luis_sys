@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.4] - 2019-3-5
+
+### Changed
+
+- Re-export sub-modules of speech.
+- Get rid of the warning of cargo publish by moving bindings.rs to output directory.
+
 ## [0.3.3] - 2019-3-5
 
 ### Changed

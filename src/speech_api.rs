@@ -1,4 +1,4 @@
 //! Re-wrap ffi bindings
 
 #![allow(warnings)]
-include!("../c_api/bindings.rs");
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
