@@ -218,7 +218,8 @@ impl Recognizer {
 
     /// Start the recognition session with configuration present.
     pub fn start(&mut self) -> Result<EventStream> {
-        self.start_flags(Flags::empty())
+        // Flags::Session | Flags::Canceled is set default. But may not be dicovered by stream filter.
+        self.start_flags(Flags::Session | Flags::Canceled)
     }
 
     /// Stop the sesstion.
@@ -233,7 +234,8 @@ impl Recognizer {
         Ok(())
     }
 
-    /// Start recognition with additional flags.
+    /// Start recognition with customized flags.
+    /// Notice: If Flags::Cancled is not set, error message may not be handled; If Flags::Session is not set, stream future may not be resolved.
     pub fn start_flags(&mut self, flags: Flags) -> Result<EventStream> {
         if self.started() {
             return Err(SpxError::AlreadyExists);

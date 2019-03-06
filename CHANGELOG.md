@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.5] - 2019-3-6
+
+### Changed
+
+- Implicitly add `Flags::Session | Flags::Canceld` for Recognizer startup to avoid unresolved future of EventStream.
+
 ## [0.3.4] - 2019-3-5
 
 ### Changed
