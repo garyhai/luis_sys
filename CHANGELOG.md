@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.6] - 2019-3-6
+
+### Changed
+
+- Convert detailed result of intent recognition to `serde_json::Value` type.
+- Make `CancellationResult::cancellation_error` be generic.
+- Expose all fields of struct `Recognition` to public.
+
 ## [0.3.5] - 2019-3-6
 
 ### Changed

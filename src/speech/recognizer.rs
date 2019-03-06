@@ -3,8 +3,8 @@
 use super::{
     audio::AudioStream,
     events::{
-        AsrResult, Event, EventResult, Flags, Recognition, RecognitionResult,
-        Session,
+        AsrResult, CancellationResult, Event, EventResult, Flags, Recognition,
+        RecognitionResult, Session,
     },
 };
 use crate::{
@@ -194,10 +194,13 @@ impl Recognizer {
         let mut hres = INVALID_HANDLE;
         hr!(recognizer_recognize_once(self.handle, &mut hres))?;
         let rr = EventResult::new(Flags::empty(), hres)?;
-        if rr.reason().contains(Flags::Recognized) {
+        let reason = rr.reason();
+        if reason.contains(Flags::Recognized) {
             Ok(String::from(rr.text()?))
+        } else if reason.contains(Flags::Canceled) {
+            rr.cancellation_error()
         } else {
-            Err(SpxError::Unknown(String::from("unhandled")))
+            Err(SpxError::Unknown(format!("unhandled reason {:?}", reason)))
         }
     }
 

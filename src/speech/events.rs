@@ -9,7 +9,7 @@ use crate::{
     DeriveHandle, FlattenProps, Handle, Result, INVALID_HANDLE,
 };
 use serde::{Deserialize, Serialize, Serializer};
-use serde_json;
+use serde_json::{self, Value};
 use std::time::Duration;
 
 /// Bitmask for events callbacks and reason of result.
@@ -133,24 +133,24 @@ impl From<Result_NoMatchReason> for Matching {
 /// Output of recognition
 #[derive(Debug, Default, Serialize)]
 pub struct Recognition {
-    flag: Flags,
-    session: String,
+    pub flag: Flags,
+    pub session: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
+    pub id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<Flags>,
+    pub reason: Option<Flags>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    offset: Option<Duration>,
+    pub offset: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    duration: Option<Duration>,
+    pub duration: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
+    pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    intent: Option<String>,
+    pub intent: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    details: Option<String>,
+    pub details: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    matching: Option<Matching>,
+    pub matching: Option<Matching>,
 }
 
 impl Recognition {
@@ -376,10 +376,11 @@ pub trait RecognitionResult: AsrResult {
         Ok(Duration::from_nanos(offset * 100))
     }
 
-    fn details(&self) -> Result<String> {
-        self.get_by_id(
+    fn details(&self) -> Result<Value> {
+        let js = self.get_by_id(
             PropertyId_LanguageUnderstandingServiceResponse_JsonResult,
-        )
+        )?;
+        Ok(serde_json::from_str(&js)?)
     }
 }
 
@@ -400,7 +401,7 @@ pub trait CancellationResult: AsrResult {
         self.get_by_id(PropertyId_SpeechServiceResponse_JsonErrorDetails)
     }
 
-    fn cancellation_error(&self) -> Result<Recognition> {
+    fn cancellation_error<T>(&self) -> Result<T> {
         let reason = self.cancellation_reason()?;
         let code = self.code()?;
         let details = self.error_details()?;
