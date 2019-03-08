@@ -1,3 +1,5 @@
+//! Examples for luis_sys usage.
+
 use env_logger;
 use futures::{Future, Stream};
 use log::{error, info};
@@ -17,27 +19,29 @@ fn main() {
 
 fn recognize_test() -> Result {
     let flags = Flags::Recognition
+        | Flags::SpeechDetection
         | Flags::Session
         | Flags::Connection
-        | Flags::SpeechDetection
         | Flags::Canceled;
+    // let flags = Flags::Recognition | Flags::SpeechDetection;
     let mut factory = RecognizerConfig::from_subscription(
         "YourLanguageUnderstandingSubscriptionKey",
         "YourLanguageUnderstandingServiceRegion",
     )?;
 
-    // let intents = vec![
-    //     "否定".to_string(),
-    //     "肯定".to_string(),
-    //     "祝福".to_string(),
-    // ];
+    let intents = vec![
+        "否定".to_string(),
+        "肯定".to_string(),
+        "中秋快乐祝你们平安无事快乐健康的生活".to_string(),
+        "健康生活".to_string(),
+    ];
     factory
         .set_flags(flags)
         .set_audio_file_path("examples/chinese_test.wav")
-        .set_model_id("YourLanguageUnderstandingAppId")
-        // .set_intents(intents)
-        .put_language("zh-CN")?
-        .put_detailed_result(true)?;
+        // .set_model_id("YourLanguageUnderstandingAppId")
+        .set_intents(intents)
+        .put_language("zh-CN")?;
+    // .put_detailed_result(true)?;
 
     // recognize_once(&factory).map_err(|e| dbg!(e))?;
     // recognize_stream(&factory).map_err(|e| dbg!(e))?;
@@ -60,10 +64,13 @@ fn recognize_stream(factory: &RecognizerConfig) -> Result {
     info!("Asynchronous ASR, streaming Event object");
     let mut reco = factory.intent_recognizer()?;
     // let mut reco = factory.recognizer()?;
-    let promise = reco.start()?.for_each(|msg| {
-        info!("result: {:?}", msg.into_result());
-        Ok(())
-    });
+    let promise = reco
+        .start()?
+        .set_filter(Flags::Recognized | Flags::SpeechDetection)
+        .for_each(|msg| {
+            info!("result: {:?}", msg.into_result());
+            Ok(())
+        });
     tokio::run(promise);
     Ok(())
 }
@@ -74,7 +81,6 @@ fn recognize_json(factory: &RecognizerConfig) -> Result {
     let mut reco = factory.intent_recognizer()?;
     let promise = reco
         .start()?
-        .filter(Flags::Recognized | Flags::SpeechDetection)
         .json()
         .for_each(|msg| {
             info!("result: {}", msg);
@@ -89,7 +95,7 @@ fn recognize_json(factory: &RecognizerConfig) -> Result {
 #[allow(dead_code)]
 fn recognize_text(factory: &RecognizerConfig) -> Result {
     info!("Asynchronous ASR, get text only results.");
-    let mut reco = factory.recognizer()?;
+    let mut reco = factory.intent_recognizer()?;
     let promise = reco.start()?;
     let promise = promise
         .text()
