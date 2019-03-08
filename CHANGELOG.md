@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.7] - 2019-3-6
+
+### Changed
+
+- Add more content to README.md file.
+- Suppress error result of `RecognitionResult::details`.
+- Change method name of `EventStream::filter` to `EventStream::set_filter` for name conflic of `Stream::filter`.
+
 ## [0.3.6] - 2019-3-6
 
 ### Changed

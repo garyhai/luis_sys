@@ -234,22 +234,24 @@ impl Event {
             }
         }
 
-        r.matching = Some(Matching::Matched);
-
         if reason.intersects(Flags::Recognition) {
             r.text = Some(er.text()?);
             r.duration = Some(er.duration()?);
             r.offset = Some(er.offset()?);
-            r.intent = Some(er.intent()?);
         }
 
-        if reason.intersects(Flags::Intent) {
-            r.intent = Some(er.intent()?);
-            r.details = Some(er.details()?);
+        if reason.intersects(Flags::Recognized) {
+            let intent = er.intent()?;
+            if !intent.is_empty() {
+                r.matching = Some(Matching::Matched);
+                r.intent = Some(intent);
+            }
+            if reason.intersects(Flags::Intent) {
+                r.details = Some(er.details()?);
+            }
         }
 
         Ok(r)
-        // Err(SpxError::Unknown(String::from("unknown flag")))
     }
 }
 
@@ -380,7 +382,11 @@ pub trait RecognitionResult: AsrResult {
         let js = self.get_by_id(
             PropertyId_LanguageUnderstandingServiceResponse_JsonResult,
         )?;
-        Ok(serde_json::from_str(&js)?)
+        if js.is_empty() {
+            Ok(Value::Null)
+        } else {
+            Ok(serde_json::from_str(&js)?)
+        }
     }
 }
 

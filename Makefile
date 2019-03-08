@@ -1,6 +1,7 @@
 .PHONY: default build clean clippy doc format release run skeptic test
 
 CARGO_FLAGS := --features "$(NS_FEATURES)"
+SPECIAL_FILES := examples/asr_simple.rs
 
 default: build
 
@@ -31,3 +32,8 @@ skeptic:
 
 test: build
 	cargo test $(CARGO_FLAGS)
+
+special:
+	git update-index --no-assume-unchanged $(SPECIAL_FILES)
+	git add $(SPECIAL_FILES)
+	git update-index --assume-unchanged $(SPECIAL_FILES)

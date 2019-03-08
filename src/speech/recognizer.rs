@@ -379,7 +379,7 @@ impl EventStream {
     }
 
     /// Define the new filter to pick out special events.
-    pub fn filter(mut self, flags: Flags) -> Self {
+    pub fn set_filter(mut self, flags: Flags) -> Self {
         self.filter = flags;
         self
     }
@@ -409,7 +409,7 @@ impl EventStream {
 
     /// Speech recognition text only.
     pub fn text(self) -> impl Stream<Item = String, Error = SpxError> {
-        let this = self.filter(Flags::Recognized);
+        let this = self.set_filter(Flags::Recognized);
         this.resulting().map(|reco| reco.text_only())
     }
 }
