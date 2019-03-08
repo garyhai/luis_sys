@@ -1,7 +1,7 @@
 # luis_sys
 Rust FFI bindings for Microsoft LUIS API.
 
-**A rust styple wrapper for Microsoft LUIS C/C++ SDK.**
+**A rust style wrapper for Microsoft LUIS C/C++ SDK.**
 
 ## Usage
 

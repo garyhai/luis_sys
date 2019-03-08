@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
-## [0.3.7] - 2019-3-6
+## [0.3.8] - 2019-3-8
+
+- Increase the version number for International Women's Day 2019.
+- Fix spell and date error.
+
+## [0.3.7] - 2019-3-8
 
 ### Changed
 
