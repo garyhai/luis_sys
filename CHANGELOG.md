@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.9] - 2019-3-13
+
+### Added
+
+- Translation and translator synthesizing audio.
+- More comments copied from Microsoft Speech SDK.
+
+
 ## [0.3.8] - 2019-3-8
+
+### Changed
 
 - Increase the version number for International Women's Day 2019.
 - Fix spell and date error.

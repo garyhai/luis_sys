@@ -4,7 +4,7 @@ use super::{
     audio::AudioStream,
     events::{
         AsrResult, CancellationResult, Event, EventResult, Flags, Recognition,
-        RecognitionResult, Session,
+        Session, SpeechResult,
     },
 };
 use crate::{
@@ -312,6 +312,14 @@ impl Recognizer {
             ))?;
         }
 
+        if flags.contains(Flags::Translation | Flags::Synthesis) {
+            hr!(translator_synthesizing_audio_set_callback(
+                self.handle,
+                Some(on_translator_synthesizing),
+                context,
+            ))?;
+        }
+
         let mut h_conn = INVALID_HANDLE;
         hr!(connection_from_recognizer(self.handle, &mut h_conn))?;
         if flags.contains(Flags::Connected) {
@@ -443,6 +451,10 @@ DefCallback!(on_session_stopped, Flags::SessionStopped);
 DefCallback!(on_speech_start, Flags::SpeechStartDetected);
 DefCallback!(on_speech_end, Flags::SpeechEndDetected);
 DefCallback!(on_canceled, Flags::Canceled);
+DefCallback!(
+    on_translator_synthesizing,
+    Flags::Synthesis | Flags::Translation
+);
 
 #[no_mangle]
 unsafe extern "C" fn on_connected(

@@ -1,13 +1,13 @@
 [package]
 name = "luis_sys"
-version = "0.3.8"
+version = "0.3.9"
 authors = ["Gary Hai <gary@neunit.com>"]
 edition = "2018"
 description = "FFI bindings for Microsoft LUIS API."
 readme = "README.md"
 keywords = ["ffi", "speech", "deep-learning", "microsoft", "luis"]
 categories = ["external-ffi-bindings", "asynchronous"]
-repository = "https://github.com/garyhai/luis_sys"
+repository = "https://github.com/neunit/luis_sys"
 documentation = "https://docs.rs/luis_sys"
 license = "MIT"
 

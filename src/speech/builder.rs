@@ -68,6 +68,7 @@ pub struct RecognizerConfig {
     audio_file_path: String,
     model_id: String,
     intents: Vec<String>,
+    target_languages: Vec<String>,
     timeout: u32,
     handle: SPXSPEECHCONFIGHANDLE,
     props: Properties,
@@ -85,6 +86,7 @@ impl RecognizerConfig {
             audio_file_path: String::new(),
             model_id: String::new(),
             intents: Vec::new(),
+            target_languages: Vec::new(),
             timeout: UINT32_MAX,
         })
     }
@@ -103,11 +105,9 @@ impl RecognizerConfig {
     }
 
     /// Creates an instance of the speech config with specified authorization token and region.
-    /// Note: The caller needs to ensure that the authorization token is valid. Before the authorization token
-    /// expires, the caller needs to refresh it by calling this setter with a new valid token.
+    /// Note: The caller needs to ensure that the authorization token is valid. Before the authorization token expires, the caller needs to refresh it by calling this setter with a new valid token.
     /// As configuration values are copied when creating a new recognizer, the new token value will not apply to recognizers that have already been created.
-    /// For recognizers that have been created before, you need to set authorization token of the corresponding recognizer
-    /// to refresh the token. Otherwise, the recognizers will encounter errors during recognition.
+    /// For recognizers that have been created before, you need to set authorization token of the corresponding recognizer to refresh the token. Otherwise, the recognizers will encounter errors during recognition.
     pub fn from_authorization_token(token: &str, region: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let token = CString::new(token)?;
@@ -123,11 +123,9 @@ impl RecognizerConfig {
     /// Creates an instance of the speech config with specified endpoint and subscription.
     /// This method is intended only for users who use a non-standard service endpoint.
     /// Note: The query parameters specified in the endpoint URL are not changed, even if they are set by any other APIs.
-    /// For example, if language is defined in uri as query parameter "language=de-DE", and also set by CreateSpeechRecognizer("en-US"),
-    /// the language setting in uri takes precedence, and the effective language is "de-DE".
+    /// For example, if language is defined in uri as query parameter "language=de-DE", and also set by CreateSpeechRecognizer("en-US"), the language setting in uri takes precedence, and the effective language is "de-DE".
     /// Only the parameters that are not specified in the endpoint URL can be set by other APIs.
-    /// Note: To use authorization token with FromEndpoint, pass an empty string to the subscription in the FromEndpoint method,
-    /// and then call SetAuthorizationToken() on the created SpeechConfig instance to use the authorization token.
+    /// Note: To use authorization token with FromEndpoint, pass an empty string to the subscription in the FromEndpoint method, and then call SetAuthorizationToken() on the created SpeechConfig instance to use the authorization token.
     pub fn from_endpoint(endpoint: &str, subscription: &str) -> Result<Self> {
         let mut handle = INVALID_HANDLE;
         let endpoint = CString::new(endpoint)?;
@@ -177,6 +175,54 @@ impl RecognizerConfig {
         Ok(reco)
     }
 
+    /// Generate a recognizer with speech and intent recognition.
+    pub fn translator(&self) -> Result<Recognizer> {
+        self.apply_target_languages()?;
+        let mut audio = self.audio_input()?;
+        let mut rh = INVALID_HANDLE;
+        hr!(recognizer_create_translation_recognizer_from_config(
+            &mut rh,
+            self.handle,
+            audio.handle(),
+        ))?;
+
+        let reco = Recognizer::new(
+            rh,
+            audio.take_stream(),
+            self.flags | Flags::Translation,
+            self.timeout,
+        );
+        Ok(reco)
+    }
+
+    /// Create audio input object.
+    pub fn audio_input(&self) -> Result<AudioInput> {
+        if self.audio_file_path.is_empty() {
+            AudioInput::from_config(&self.audio)
+        } else {
+            AudioInput::from_wav_file(&self.audio_file_path)
+        }
+    }
+
+    /// Bitmask flags for events handlers.
+    SimpleAttribute!(flags, set_flags, Flags);
+    /// Timeout value for aynchronous operation.
+    SimpleAttribute!(timeout, set_timeout, u32);
+    /// If audio file path is provided, audio input is the single file.
+    DefineAttribute!(audio_file_path, set_audio_file_path, String);
+    /// Audio format of audio stream.
+    DefineAttribute!(audio, set_audio, AudioConfig);
+    /// Language understanding model application id.
+    DefineAttribute!(model_id, set_model_id, String);
+
+    /// If intents is empty, all the intents of the given model will be loaded.
+    /// If model is not set, content of intents is a set of phrases for simple intent matching.
+    DefineAttribute!(intents, set_intents, Vec<String>);
+    /// Shortcut of intents vector operation.
+    pub fn add_intent(&mut self, name: &str) -> Result<&mut Self> {
+        self.intents.push(name.to_string());
+        Ok(self)
+    }
     /// Add intents from configuration to generated recognizer.
     fn apply_intents(&self, reco: &Recognizer) -> Result {
         if self.model_id.is_empty() {
@@ -201,34 +247,35 @@ impl RecognizerConfig {
         Ok(())
     }
 
-    /// Create audio input object.
-    pub fn audio_input(&self) -> Result<AudioInput> {
-        if self.audio_file_path.is_empty() {
-            AudioInput::from_config(&self.audio)
-        } else {
-            AudioInput::from_wav_file(&self.audio_file_path)
-        }
-    }
-
-    /// Bitmask flags for events handlers.
-    SimpleAttribute!(flags, set_flags, Flags);
-    /// Timeout value for aynchronous operation.
-    SimpleAttribute!(timeout, set_timeout, u32);
-    /// If audio file path is provided, audio input is the single file.
-    DefineAttribute!(audio_file_path, set_audio_file_path, String);
-    /// Audio format of audio stream.
-    DefineAttribute!(audio, set_audio, AudioConfig);
-    /// Language understanding model application id.
-    DefineAttribute!(model_id, set_model_id, String);
-    /// If intents is empty, all the intents of the given model will be loaded.
-    /// If model is not set, content of intents is a set of phrases for simple intent matching.
-    DefineAttribute!(intents, set_intents, Vec<String>);
-
+    /// Can translate one speech source to multiple languages simultaneously.
+    DefineAttribute!(target_languages, set_target_languages, Vec<String>);
     /// Shortcut of intents vector operation.
-    pub fn add_intent(&mut self, name: &str) -> Result<&mut Self> {
-        self.intents.push(name.to_string());
+    pub fn add_target_language(&mut self, name: &str) -> Result<&mut Self> {
+        self.target_languages.push(name.to_string());
         Ok(self)
     }
+    /// Apply target languages to generate translator.
+    fn apply_target_languages(&self) -> Result {
+        let tl = self.target_languages.join(",");
+        self.props.put_by_id(
+            PropertyId_SpeechServiceConnection_TranslationToLanguages,
+            tl,
+        )
+    }
+
+    /// The input language of the speech recognizer.
+    DefineProperty!(
+        voice_name,
+        put_voice_name,
+        PropertyId_SpeechServiceConnection_TranslationVoice
+    );
+
+    /// The input language of the speech recognizer.
+    DefineProperty!(
+        translation_features,
+        put_translation_features,
+        PropertyId_SpeechServiceConnection_TranslationFeatures
+    );
 
     /// The input language of the speech recognizer.
     DefineProperty!(

@@ -9,7 +9,7 @@ Add luis_sys to the dependencies section in your project's `Cargo.toml`, with
 
 ```toml
 [dependencies]
-luis_sys = "^0.3.7"
+luis_sys = "^0.3.8"
 ```
 
 Note: The crate includes [Cognitive Services Speech SDK Linux Version](https://aka.ms/csspeech/linuxbinary) 1.3.1. Windows version is not tested.
@@ -121,6 +121,6 @@ See the [change log](https://github.com/neunit/luis_sys/blob/master/CHANGELOG.md
 - The crate is working in progress, carefully if apply in production.
 
 - Only speech SDK of LUIS service has C/C++ version. So current version supports very few feature of LUIS while LUIS SDK is in fast evolution phase.
-- Windows version SDK is not test.
+- Windows version SDK is not tested.
 - Linux version SDK only support Ubuntu distribution currently.
 - Please read the [prerequisites](https://docs.microsoft.com/azure/cognitive-services/speech-service/quickstart-cpp-linux) at first.
