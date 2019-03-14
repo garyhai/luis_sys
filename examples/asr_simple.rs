@@ -116,7 +116,7 @@ fn recognize_text(factory: &RecognizerConfig) -> Result {
 
 #[allow(dead_code)]
 fn translate(factory: &RecognizerConfig) -> Result {
-    info!("Asynchronous ASR, get json results");
+    info!("Asynchronous translation and audio synthesis, get json results");
     let mut reco = factory.translator()?;
     let promise = reco
         .start()?
