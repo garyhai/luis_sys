@@ -106,11 +106,33 @@ fn recognize_stream(factory: &RecognizerConfig) -> Result {
 
 ```
 
+Translate and synthesis audio.
+
+```rust
+factory
+    // Add one or many target languages to tranlate from speech.
+    .add_target_language("en")?
+    // Enable audio synthesis output.
+    .put_translation_features("textToSpeech")?
+    // Select voice name appropriate for the target language.
+    .put_voice_name("Microsoft Server Speech Text to Speech Voice (en-US, JessaRUS)")?;
+
+info!("Asynchronous translation and audio synthesis");
+let mut reco = factory.translator()?;
+let promise = reco
+    .start()?
+    .set_filter(Flags::Recognized | Flags::Synthesis)
+    .for_each(|evt| {
+        // Handle the translation or synthesis result.
+        Ok(())
+    })
+    .map_err(|err| error!("{}", err));
+
+tokio::run(promise);
+
+```
+
 `EventStream` returned by `Recognizer::start` is implemented `futures::Stream `for asynchronous operation. And it can be refined by `set_filter`, `resulting`, `json` and `text` to pump different format results. And you can do that and more by Future/Stream combinations.
-
-## Next Step
-
-Will add translation feature soon.
 
 ## Versions
 

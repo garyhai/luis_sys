@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.10] - 2019-3-14
+
+### Added
+
+- Add section for translation and synthesis in `README.md`.
+
 ## [0.3.9] - 2019-3-13
 
 ### Added
