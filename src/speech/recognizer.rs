@@ -430,7 +430,10 @@ impl Stream for EventStream {
         while !self.stopped {
             match try_ready!(self.source.poll()) {
                 Some(evt) => {
-                    if evt.flag().contains(Flags::SessionStopped) {
+                    if evt
+                        .flag()
+                        .intersects(Flags::SessionStopped | Flags::Canceled)
+                    {
                         self.stopped = true;
                     }
                     if evt.flag().intersects(self.filter) {
@@ -473,6 +476,7 @@ unsafe extern "C" fn on_disconnected(
 }
 
 fn fire_on_event(flag: Flags, hevent: SPXEVENTHANDLE, context: *mut c_void) {
+    log::trace!("Recognition event {:?} fired.", flag);
     let evt = Event::new(flag, hevent);
     if context.is_null() {
         log::error!("Unknown context with NULL pointer.");

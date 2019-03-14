@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{self, json, Value};
 use std::{ffi::CStr, os::raw::c_char, ptr::null_mut, slice, time::Duration};
 
+const SPXERR_BUFFER_TOO_SMALL: usize = 0x019;
+
 /// Bitmask for events callbacks and reason of result.
 bitflags! {
     #[derive(Default, Deserialize)]
@@ -244,7 +246,7 @@ impl Event {
             r.offset = Some(er.offset()?);
         }
 
-        if reason.intersects(Flags::Recognized | Flags::Intent) {
+        if reason.intersects(Flags::Intent) {
             let intent = er.intent()?;
             if !intent.is_empty() {
                 r.matching = Some(Matching::Matched);
@@ -255,9 +257,12 @@ impl Event {
             }
         }
 
-        if reason.intersects(Flags::Recognized | Flags::Translation) {
+        if reason.intersects(Flags::Translation) {
             let translations = er.translations()?;
             r.translations = Some(translations);
+        }
+
+        if reason.contains(Flags::Translation | Flags::Synthesis) {
             let sz = er.synthesis_data_length()?;
             if sz != 0 {
                 let mut buf = Vec::with_capacity(sz);
@@ -424,11 +429,16 @@ pub trait TranslationResult: RecognitionResult {
     /// Presents the translation results. Each item in the map is a key value pair, where key is the language tag of the translated text, and value is the translation text in that language.
     fn translations(&self) -> Result<Value> {
         let mut length = 0;
-        hr!(translation_text_result_get_translation_text_buffer_header(
-            self.handle(),
-            null_mut(),
-            &mut length
-        ))?;
+        let hr = unsafe {
+            translation_text_result_get_translation_text_buffer_header(
+                self.handle(),
+                null_mut(),
+                &mut length,
+            )
+        };
+        if hr != SPXERR_BUFFER_TOO_SMALL {
+            return Err(SpxError::ApiError(hr));
+        }
         if length == 0 {
             return Err(SpxError::NulError);
         }
@@ -461,11 +471,16 @@ pub trait TranslationResult: RecognitionResult {
     /// Check the length of synthesised voice data length for allocation of buffer.
     fn synthesis_data_length(&self) -> Result<usize> {
         let mut length = 0;
-        hr!(translation_synthesis_result_get_audio_data(
-            self.handle(),
-            null_mut(),
-            &mut length
-        ))?;
+        let hr = unsafe {
+            translation_synthesis_result_get_audio_data(
+                self.handle(),
+                null_mut(),
+                &mut length,
+            )
+        };
+        if hr != SPXERR_BUFFER_TOO_SMALL && hr != 0 {
+            return Err(SpxError::ApiError(hr));
+        }
         Ok(length)
     }
 

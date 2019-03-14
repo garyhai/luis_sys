@@ -9,6 +9,9 @@
 - Translation and translator synthesizing audio.
 - More comments copied from Microsoft Speech SDK.
 
+### Changed
+
+- Event of `Canceled` cause stop of recognition. Events `SessionStopped` and `Disconnected` will not be triggered.
 
 ## [0.3.8] - 2019-3-8
 
