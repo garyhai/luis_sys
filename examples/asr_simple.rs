@@ -19,6 +19,7 @@ fn main() {
 
 fn recognize_test() -> Result {
     let flags = Flags::Recognition
+        | Flags::Synthesis
         | Flags::SpeechDetection
         | Flags::Session
         | Flags::Connection
@@ -30,23 +31,27 @@ fn recognize_test() -> Result {
     )?;
 
     let intents = vec![
-        "否定".to_string(),
-        "肯定".to_string(),
-        "中秋快乐祝你们平安无事快乐健康的生活".to_string(),
-        "健康生活".to_string(),
+        // "否定".to_string(),
+        // "肯定".to_string(),
+        // "中秋快乐祝你们平安无事快乐健康的生活".to_string(),
+        // "健康生活".to_string(),
     ];
     factory
         .set_flags(flags)
         .set_audio_file_path("examples/chinese_test.wav")
-        // .set_model_id("YourLanguageUnderstandingAppId")
+        .set_model_id("YourLanguageUnderstandingAppId")
         .set_intents(intents)
-        .put_language("zh-CN")?;
+        .put_language("zh-CN")?
+        .add_target_language("en")?
+        .put_translation_features("textToSpeech")?
+        .put_voice_name("Microsoft Server Speech Text to Speech Voice (en-US, JessaRUS)")?;
     // .put_detailed_result(true)?;
 
-    // recognize_once(&factory).map_err(|e| dbg!(e))?;
-    // recognize_stream(&factory).map_err(|e| dbg!(e))?;
+    recognize_once(&factory).map_err(|e| dbg!(e))?;
+    recognize_stream(&factory).map_err(|e| dbg!(e))?;
     recognize_json(&factory).map_err(|e| dbg!(e))?;
-    // recognize_text(&factory).map_err(|e| dbg!(e))?;
+    recognize_text(&factory).map_err(|e| dbg!(e))?;
+    translate(&factory).map_err(|e| dbg!(e))?;
     Ok(())
 }
 
@@ -108,3 +113,22 @@ fn recognize_text(factory: &RecognizerConfig) -> Result {
     tokio::run(promise);
     Ok(())
 }
+
+#[allow(dead_code)]
+fn translate(factory: &RecognizerConfig) -> Result {
+    info!("Asynchronous ASR, get json results");
+    let mut reco = factory.translator()?;
+    let promise = reco
+        .start()?
+        .set_filter(Flags::Recognized | Flags::Synthesis)
+        .json()
+        .for_each(|msg| {
+            info!("result: {}", msg);
+            Ok(())
+        })
+        .map_err(|err| error!("{}", err));
+
+    tokio::run(promise);
+    Ok(())
+}
+
