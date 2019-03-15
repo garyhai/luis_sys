@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.11] - 2019-3-15
+
+### Changed
+
+- `Recognizer::recognize` return full `EventResult` now.
+
 ## [0.3.10] - 2019-3-14
 
 ### Added

@@ -2,10 +2,7 @@
 
 use super::{
     audio::AudioStream,
-    events::{
-        AsrResult, CancellationResult, Event, EventResult, Flags, Recognition,
-        Session, SpeechResult,
-    },
+    events::{Event, EventResult, Flags, Recognition, Session},
 };
 use crate::{
     hr, speech_api::*, DeriveHandle, Handle, Result, SmartHandle, SpxError,
@@ -190,18 +187,10 @@ impl Recognizer {
     }
 
     /// Blocked mode for once recognition.
-    pub fn recognize(&self) -> Result<String> {
+    pub fn recognize(&self) -> Result<EventResult> {
         let mut hres = INVALID_HANDLE;
         hr!(recognizer_recognize_once(self.handle, &mut hres))?;
-        let rr = EventResult::new(Flags::empty(), hres)?;
-        let reason = rr.reason();
-        if reason.contains(Flags::Recognized) {
-            Ok(String::from(rr.text()?))
-        } else if reason.contains(Flags::Canceled) {
-            rr.cancellation_error()
-        } else {
-            Err(SpxError::Unknown(format!("unhandled reason {:?}", reason)))
-        }
+        EventResult::new(Flags::empty(), hres)
     }
 
     /// Pause the progress of recognition.
