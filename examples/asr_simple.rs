@@ -3,7 +3,7 @@
 use env_logger;
 use futures::{Future, Stream};
 use log::{error, info};
-use luis_sys::{builder::RecognizerConfig, events::Flags, Result};
+use luis_sys::{builder::RecognizerConfig, events::Flags, Result, AsrResult, CancellationResult, SpeechResult};
 use std::env;
 use tokio;
 
@@ -59,8 +59,16 @@ fn recognize_test() -> Result {
 fn recognize_once(factory: &RecognizerConfig) -> Result {
     info!("Synchronous ASR ");
     let recognizer = factory.recognizer()?;
-    let result = recognizer.recognize()?;
-    info!("done: {}", result);
+    let rr = recognizer.recognize()?;
+    let reason = rr.reason();
+    if reason.contains(Flags::Recognized) {
+        info!("Recognized: {:?}", rr.text());
+    } else if reason.contains(Flags::Canceled) {
+        error!("Error: {:?}", rr.error_details());
+    } else {
+        error!("unhandled reason {:?}", reason);
+    }
+    info!("done");
     Ok(())
 }
 
