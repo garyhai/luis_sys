@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.12] - 2019-4-10
+
+### Fixed
+
+- Fix copy/paste bug of `RecognitionResult::offset`.
+
 ## [0.3.11] - 2019-3-15
 
 ### Changed

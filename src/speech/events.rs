@@ -392,7 +392,7 @@ pub trait RecognitionResult: AsrResult {
     /// A single tick represents one hundred nanoseconds or one ten-millionth of a second.
     fn offset(&self) -> Result<Duration> {
         let mut offset = 0u64;
-        hr!(result_get_duration(self.handle(), &mut offset))?;
+        hr!(result_get_offset(self.handle(), &mut offset))?;
         Ok(Duration::from_nanos(offset * 100))
     }
 }
