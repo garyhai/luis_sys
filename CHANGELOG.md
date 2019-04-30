@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.13] - 2019-4-30
+
+### Added.
+
+- Add `endpoint` property in `RecognizerConfig` for customized model.
+
+
 ## [0.3.12] - 2019-4-10
 
 ### Fixed

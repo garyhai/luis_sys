@@ -284,6 +284,13 @@ impl RecognizerConfig {
         PropertyId_SpeechServiceConnection_RecoLanguage
     );
 
+    /// The endpoint ID of the speech recognizer.
+    DefineProperty!(
+        endpoint,
+        put_endpoint,
+        PropertyId_SpeechServiceConnection_EndpointId
+    );
+
     /// Detailed output format or not.
     DefineProperty!(
         detailed_result,
