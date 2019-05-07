@@ -1,5 +1,5 @@
 //! FFI bindings for Microsoft LUIS API.
-//! 
+//!
 //! Current version support only LUIS Speech API.
 
 #[macro_use]
@@ -10,12 +10,12 @@ pub(crate) mod macros;
 pub(crate) mod properties;
 pub(crate) mod speech_api;
 
-pub mod speech;
 pub mod error;
+pub mod speech;
 
-pub use speech::*;
 /// Common error type of the crate.
 pub use error::SpxError;
+pub use speech::*;
 /// Redefine the result of the crate for convenience.
 pub type Result<T = (), E = SpxError> = std::result::Result<T, E>;
 

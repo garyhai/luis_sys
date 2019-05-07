@@ -2,9 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.14] - 2019-5-7
+
+### Changed
+
+- Upgrade Microsoft Speech SDK to v1.5.0.
+- Add macOS support.
+
 ## [0.3.13] - 2019-4-30
 
-### Added.
+### Added
 
 - Add `endpoint` property in `RecognizerConfig` for customized model.
 

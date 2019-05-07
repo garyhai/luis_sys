@@ -2,9 +2,9 @@
 
 use crate::speech::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
+use serde::Serialize;
 use serde_json::{Error as JsonError, Value};
 use std::{ffi, string::FromUtf8Error};
-use serde::Serialize;
 
 #[derive(Fail, Debug, Serialize)]
 pub enum SpxError {
