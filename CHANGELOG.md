@@ -5,7 +5,7 @@
 ### Fixed
 
 - Exclude `asr_simple.rs` for leak of keys.
-- Exclude `SpeechSDK` to reduce size of crate.
+- Exclude `SpeechSDK/macos` to reduce size of crate.
 
 ## [0.3.14] - 2019-5-7
 
