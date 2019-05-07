@@ -10,7 +10,7 @@ categories = ["external-ffi-bindings", "asynchronous"]
 repository = "https://github.com/neunit/luis_sys"
 documentation = "https://docs.rs/luis_sys"
 license = "MIT"
-exclude = ["SpeechSDK/macos/**", "examples/asr_simple.rs"]
+exclude = ["SpeechSDK/**", "examples/asr_simple.rs"]
 
 [dependencies]
 bitflags = "1.0.4"
