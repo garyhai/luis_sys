@@ -64,7 +64,7 @@ DeriveHandle!(
 /// Configurator.
 pub struct RecognizerConfig {
     flags: Flags,
-    audio: AudioConfig,
+    audio: Option<AudioConfig>,
     audio_file_path: String,
     model_id: String,
     intents: Vec<String>,
@@ -82,7 +82,7 @@ impl RecognizerConfig {
             handle,
             props: Properties::new(hprops),
             flags: Flags::Recognized,
-            audio: AudioConfig::default(),
+            audio: None,
             audio_file_path: String::new(),
             model_id: String::new(),
             intents: Vec::new(),
@@ -197,11 +197,27 @@ impl RecognizerConfig {
 
     /// Create audio input object.
     pub fn audio_input(&self) -> Result<AudioInput> {
-        if self.audio_file_path.is_empty() {
-            AudioInput::from_config(&self.audio)
-        } else {
+        if !self.audio_file_path.is_empty() {
             AudioInput::from_wav_file(&self.audio_file_path)
+        } else if let Some(ref cfg) = self.audio {
+            AudioInput::from_config(cfg)
+        } else {
+            AudioInput::from_microphone()
         }
+    }
+
+    /// Get auido input configration. Return None if input of microphone.
+    pub fn audio_config(&self) -> Option<AudioConfig> {
+        self.audio
+    }
+
+    /// Set audio input configuration. Type of T should be tuple(rate, bits, channels) or AudioConfig.
+    pub fn set_audio_config<T: Into<AudioConfig>>(
+        &mut self,
+        v: T,
+    ) -> &mut Self {
+        self.audio = Some(v.into());
+        self
     }
 
     /// Bitmask flags for events handlers.
@@ -210,8 +226,6 @@ impl RecognizerConfig {
     SimpleAttribute!(timeout, set_timeout, u32);
     /// If audio file path is provided, audio input is the single file.
     DefineAttribute!(audio_file_path, set_audio_file_path, String);
-    /// Audio format of audio stream.
-    DefineAttribute!(audio, set_audio, AudioConfig);
     /// Language understanding model application id.
     DefineAttribute!(model_id, set_model_id, String);
 

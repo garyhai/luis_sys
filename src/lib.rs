@@ -24,6 +24,9 @@ pub use speech_api::{SPXHANDLE, SPXHR};
 /// (-1) as INVALID HANDLE for initilization or validation.
 pub(crate) const INVALID_HANDLE: SPXHANDLE = std::usize::MAX as SPXHANDLE;
 
+/// (0:usize) as NULL HANDLE for initilization.
+pub(crate) const NULL_HANDLE: SPXHANDLE = 0 as SPXHANDLE;
+
 /// Trait for underlying handle of the API.
 pub trait Handle<T = SPXHANDLE> {
     fn handle(&self) -> T;

@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.15] - 2019-5-16
+
 ### Fixed
 
 - Exclude `asr_simple.rs` for leak of keys.
 - Exclude `SpeechSDK` to reduce size of crate.
+
+### Added
+
+- Support microphone input of audio stream.
 
 ## [0.3.14] - 2019-5-7
 

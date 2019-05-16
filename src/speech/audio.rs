@@ -4,7 +4,7 @@ use super::builder::AudioConfig;
 use crate::speech_api::*;
 use crate::{
     hr, properties::Properties, DeriveHandle, FlattenProps, Handle, Result,
-    SmartHandle, SpxError, INVALID_HANDLE,
+    SmartHandle, SpxError, INVALID_HANDLE, NULL_HANDLE,
 };
 use std::ffi::CString;
 
@@ -27,6 +27,13 @@ pub struct AudioInput {
 
 impl AudioInput {
     fn new(handle: SPXAUDIOCONFIGHANDLE) -> Result<Self> {
+        if handle == NULL_HANDLE {
+            return Ok(AudioInput {
+                handle,
+                props: Properties::new(INVALID_HANDLE),
+                stream: None,
+            });
+        }
         let mut hprops = INVALID_HANDLE;
         hr!(audio_config_get_property_bag(handle, &mut hprops))?;
         Ok(AudioInput {
@@ -61,6 +68,12 @@ impl AudioInput {
             path.as_ptr(),
         ))?;
         AudioInput::new(handle)
+    }
+
+    /// Create audio input from host microphone.
+    pub fn from_microphone() -> Result<Self> {
+        // AudioInput::new(std::ptr::null_mut())
+        AudioInput::new(0 as SPXHANDLE)
     }
 
     /// Convert AudioStream to AudioInput. AudioStream is kept in AudioInput instance.
