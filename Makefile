@@ -5,7 +5,7 @@ SPECIAL_FILES := examples/asr_simple.rs
 
 default: build
 
-build:
+build: | SpeechSDK
 	cargo build $(CARGO_FLAGS)
 
 clean:
@@ -37,3 +37,12 @@ special:
 	git update-index --no-assume-unchanged $(SPECIAL_FILES)
 	git add $(SPECIAL_FILES)
 	git update-index --assume-unchanged $(SPECIAL_FILES)
+
+SpeechSDK:
+	mkdir -p $@
+	mkdir -p $@/macos
+	curl -SL https://aka.ms/csspeech/macosbinary -o $@/macos.zip
+	unzip -q $@/macos.zip -d $@/macos
+	rm $@/macos.zip
+	mkdir -p $@/linux
+	curl -SL https://aka.ms/csspeech/linuxbinary | tar --strip 1 -xzf - -C $@/linux
