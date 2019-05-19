@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.16] - 2019-5-20
+
 ### Changed
 
-- Remove SpeechSDK, while download that on demand.
+- Remove SpeechSDK, download that on demand.
 
 ## [0.3.15] - 2019-5-16
 

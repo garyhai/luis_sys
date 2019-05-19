@@ -5,7 +5,7 @@ SPECIAL_FILES := examples/asr_simple.rs
 
 default: build
 
-build: | SpeechSDK
+build:
 	cargo build $(CARGO_FLAGS)
 
 clean:
@@ -24,8 +24,11 @@ format:
 release:
 	cargo build --release $(CARGO_FLAGS)
 
-run:
-	DYLD_FRAMEWORK_PATH="SpeechSDK/macos" cargo run --example asr_simple
+run: build
+	DYLD_FRAMEWORK_PATH="SpeechSDK/macos_sdk" cargo run --example asr_simple
+
+linux_run: build
+	LD_LIBRARY_PATH="SpeechSDK/linux_sdk/lib/x64" cargo run --example asr_simple
 
 skeptic:
 	USE_SKEPTIC=1 cargo test $(CARGO_FLAGS)
@@ -38,11 +41,12 @@ special:
 	git add $(SPECIAL_FILES)
 	git update-index --assume-unchanged $(SPECIAL_FILES)
 
-SpeechSDK:
-	mkdir -p $@
-	mkdir -p $@/macos
-	curl -SL https://aka.ms/csspeech/macosbinary -o $@/macos.zip
-	unzip -q $@/macos.zip -d $@/macos
-	rm $@/macos.zip
-	mkdir -p $@/linux
-	curl -SL https://aka.ms/csspeech/linuxbinary | tar --strip 1 -xzf - -C $@/linux
+macos_sdk:
+	mkdir -p SpeechSDK/$@
+	curl -SL https://aka.ms/csspeech/macosbinary -o macos.zip
+	unzip -q macos.zip -d SpeechSDK/$@
+	rm macos.zip
+
+linux_sdk:
+	mkdir -p SpeechSDK/$@
+	curl -SL https://aka.ms/csspeech/linuxbinary | tar --strip 1 -xzf - -C SpeechSDK/$@
