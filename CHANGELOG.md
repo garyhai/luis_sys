@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.17] - 2019-5-20
+
+### Changed
+
+- Fetch & extract `SpeechSDK` in `build.rs`.
+
 ## [0.3.16] - 2019-5-20
 
 ### Changed
