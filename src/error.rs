@@ -4,12 +4,20 @@ use crate::speech::events::{CancellationError, NoMatchError, ToJson};
 use failure::Fail;
 use serde::Serialize;
 use serde_json::{Error as JsonError, Value};
-use std::{ffi, string::FromUtf8Error};
+use std::{
+    ffi, io,
+    string::FromUtf8Error,
+    sync::{self, mpsc},
+};
 
 #[derive(Fail, Debug, Serialize)]
 pub enum SpxError {
+    #[fail(display = "{}", _0)]
+    Misc(String),
     #[fail(display = "speech API return error code: {}", _0)]
     ApiError(usize),
+    #[fail(display = "I/O error: {}", _0)]
+    IoError(String),
     #[fail(display = "ASR progress is cancelled: {}", _0)]
     Cancellation(Value),
     #[fail(display = "recognition result was not recognized: {}", _0)]
@@ -32,12 +40,36 @@ pub enum SpxError {
     Unknown(String),
 }
 
+impl SpxError {
+    pub fn misc_err<T: ToString>(err: T) -> SpxError {
+        SpxError::Misc(err.to_string())
+    }
+}
+
 pub use SpxError::*;
 
 impl From<usize> for SpxError {
     fn from(code: usize) -> Self {
         assert!(code != 0);
         SpxError::ApiError(code)
+    }
+}
+
+impl From<io::Error> for SpxError {
+    fn from(err: io::Error) -> Self {
+        SpxError::IoError(err.to_string())
+    }
+}
+
+impl From<mpsc::RecvError> for SpxError {
+    fn from(err: mpsc::RecvError) -> Self {
+        SpxError::IoError(err.to_string())
+    }
+}
+
+impl<T> From<mpsc::SendError<T>> for SpxError {
+    fn from(err: mpsc::SendError<T>) -> Self {
+        SpxError::IoError(err.to_string())
     }
 }
 
@@ -89,17 +121,17 @@ impl From<FromUtf8Error> for SpxError {
     }
 }
 
-impl<T> From<std::sync::TryLockError<T>> for SpxError {
-    fn from(err: std::sync::TryLockError<T>) -> Self {
+impl<T> From<sync::TryLockError<T>> for SpxError {
+    fn from(err: sync::TryLockError<T>) -> Self {
         match err {
-            std::sync::TryLockError::WouldBlock => SpxError::WouldBlock,
+            sync::TryLockError::WouldBlock => SpxError::WouldBlock,
             _ => SpxError::Poisoned,
         }
     }
 }
 
-impl<T> From<std::sync::PoisonError<T>> for SpxError {
-    fn from(_: std::sync::PoisonError<T>) -> Self {
+impl<T> From<sync::PoisonError<T>> for SpxError {
+    fn from(_: sync::PoisonError<T>) -> Self {
         SpxError::Poisoned
     }
 }

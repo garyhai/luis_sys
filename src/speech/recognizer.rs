@@ -1,7 +1,7 @@
 //! Recognizer for speech with intent and translation support.
 
 use super::{
-    audio::AudioStream,
+    audio::AudioInputStream,
     events::{Event, EventResult, Flags, Recognition, Session},
 };
 use crate::{
@@ -152,7 +152,7 @@ DeriveHandle!(
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     flags: Flags,
-    stream: Option<AudioStream>,
+    stream: Option<Box<dyn AudioInputStream>>,
     sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
 }
@@ -161,7 +161,7 @@ impl Recognizer {
     /// Constructor.
     pub fn new(
         handle: SPXRECOHANDLE,
-        stream: Option<AudioStream>,
+        stream: Option<Box<dyn AudioInputStream>>,
         flags: Flags,
         timeout: u32,
     ) -> Self {

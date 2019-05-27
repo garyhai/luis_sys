@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.18] - 2019-5-27
+
+### Added
+
+- Add `update` command to Makefile for upgrading of dependencies.
+- Add `get_sdk` command to Makefile to fetch latest version of SpeechSDK for running of `asr_simple`.
+- Add more conversions for std error types to `SpxError`
+- Add `pull mode` of streaming.
+
 ## [0.3.17] - 2019-5-20
 
 ### Changed

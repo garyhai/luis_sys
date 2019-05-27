@@ -14,7 +14,6 @@ use std::{ffi::CStr, os::raw::c_char, ptr::null_mut, slice, time::Duration};
 
 const SPXERR_BUFFER_TOO_SMALL: usize = 0x019;
 
-/// Bitmask for events callbacks and reason of result.
 bitflags! {
     #[derive(Default, Deserialize)]
     pub struct Flags: u64 {

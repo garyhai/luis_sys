@@ -1,6 +1,6 @@
 [package]
 name = "luis_sys"
-version = "0.3.17"
+version = "0.3.18"
 authors = ["Gary Hai <gary@neunit.com>"]
 edition = "2018"
 description = "FFI bindings for Microsoft LUIS API."
@@ -10,7 +10,6 @@ categories = ["external-ffi-bindings", "asynchronous"]
 repository = "https://github.com/neunit/luis_sys"
 documentation = "https://docs.rs/luis_sys"
 license = "MIT"
-exclude = ["SpeechSDK/**", "examples/asr_simple.rs"]
 
 [dependencies]
 bitflags = "1.0.4"

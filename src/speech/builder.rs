@@ -66,6 +66,7 @@ pub struct RecognizerConfig {
     flags: Flags,
     audio: Option<AudioConfig>,
     audio_file_path: String,
+    pull_mode: bool,
     model_id: String,
     intents: Vec<String>,
     target_languages: Vec<String>,
@@ -84,6 +85,7 @@ impl RecognizerConfig {
             flags: Flags::Recognized,
             audio: None,
             audio_file_path: String::new(),
+            pull_mode: false,
             model_id: String::new(),
             intents: Vec::new(),
             target_languages: Vec::new(),
@@ -200,7 +202,7 @@ impl RecognizerConfig {
         if !self.audio_file_path.is_empty() {
             AudioInput::from_wav_file(&self.audio_file_path)
         } else if let Some(ref cfg) = self.audio {
-            AudioInput::from_config(cfg)
+            AudioInput::from_config(cfg, self.pull_mode)
         } else {
             AudioInput::from_microphone()
         }
@@ -220,6 +222,8 @@ impl RecognizerConfig {
         self
     }
 
+    /// Streaming mode of audio input. Pull mode is true, push mode is false.
+    SimpleAttribute!(pull_mode, set_pull_mode, bool);
     /// Bitmask flags for events handlers.
     SimpleAttribute!(flags, set_flags, Flags);
     /// Timeout value for aynchronous operation.
