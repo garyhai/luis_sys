@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.19] - 2019-5-28
+
+### Changed
+
+- Simplify the `error` module.
+- Fix bug of `Box::from_raw` of `StreamReader`.
+- Fix bug of `pull audio input stream` close function.
+- Replace member stream of Recognizer to audio with different type.
+
 ## [0.3.18] - 2019-5-27
 
 ### Added

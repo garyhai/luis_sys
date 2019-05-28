@@ -428,18 +428,18 @@ pub trait TranslationResult: RecognitionResult {
     /// Presents the translation results. Each item in the map is a key value pair, where key is the language tag of the translated text, and value is the translation text in that language.
     fn translations(&self) -> Result<Value> {
         let mut length = 0;
-        let hr = unsafe {
+        let hres = unsafe {
             translation_text_result_get_translation_text_buffer_header(
                 self.handle(),
                 null_mut(),
                 &mut length,
             )
         };
-        if hr != SPXERR_BUFFER_TOO_SMALL {
-            return Err(SpxError::ApiError(hr));
+        if hres != SPXERR_BUFFER_TOO_SMALL {
+            return Err(SpxError::ApiError(hres));
         }
         if length == 0 {
-            return Err(SpxError::NulError);
+            return Err(SpxError::IsNull);
         }
 
         let mut buf = Vec::with_capacity(length + 1);

@@ -92,7 +92,7 @@ macro_rules! SmartHandle {
 #[macro_export]
 macro_rules! hr {
     ($ffi:expr) => {
-        crate::ffi_result(unsafe { $ffi })
+        crate::error::from_hr(unsafe { $ffi })
     };
 }
 

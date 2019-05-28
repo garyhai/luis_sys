@@ -32,15 +32,6 @@ pub trait Handle<T = SPXHANDLE> {
     fn handle(&self) -> T;
 }
 
-/// Convert from integer HRESULT to Result<(), SpxError>.
-pub(crate) fn ffi_result(code: SPXHR) -> Result {
-    if code == 0 {
-        Ok(())
-    } else {
-        Err(SpxError::from(code))
-    }
-}
-
 /// Retrieve the string from FFI function with pre-allocated buffer.
 pub(crate) fn get_cf_string(
     cf: unsafe extern "C" fn(SPXHANDLE, *mut c_char, u32) -> SPXHR,
@@ -53,5 +44,5 @@ pub(crate) fn get_cf_string(
     let buf_ptr = s.as_mut_ptr() as *mut std::os::raw::c_char;
     hr!(cf(handle, buf_ptr, max_len as u32))?;
     let output = unsafe { CStr::from_ptr(buf_ptr) };
-    Ok(String::from(output.to_str()?))
+    Ok(output.to_str().map(String::from)?)
 }

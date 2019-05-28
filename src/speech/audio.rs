@@ -1,10 +1,12 @@
 //! Represents specific audio configuration, such as microphone, file, or custom audio streams.
+//! 
+//! FIXME: memory leak of StreamReader when callback function on_stream_close is not called by Speech SDK.
 
 use super::builder::AudioConfig;
 use crate::speech_api::*;
 use crate::{
-    hr, properties::Properties, DeriveHandle, FlattenProps, Handle, Result,
-    SmartHandle, INVALID_HANDLE, NULL_HANDLE,
+    error::IsNothing, hr, properties::Properties, DeriveHandle, FlattenProps,
+    Handle, Result, SmartHandle, INVALID_HANDLE, NULL_HANDLE,
 };
 use std::{
     ffi::CString,
@@ -50,13 +52,21 @@ impl AudioInput {
     }
 
     /// Drop AudioInput and yield an audio stream.
-    pub fn into_stream(mut self) -> Option<Box<dyn AudioInputStream>> {
-        self.stream.take()
+    pub fn input(&self, buffer: &mut [u8]) -> Result {
+        if let Some(stream) = &self.stream {
+            stream.write(buffer)
+        } else {
+            Err(IsNothing)
+        }
     }
 
     /// Take away audio stream.
-    pub fn take_stream(&mut self) -> Option<Box<dyn AudioInputStream>> {
-        self.stream.take()
+    pub fn close(&mut self) -> Result {
+        if let Some(stream) = &self.stream {
+            stream.close()
+        } else {
+            Ok(())
+        }
     }
 
     /// Create audio config and stream by given auido format.
@@ -117,15 +127,14 @@ pub trait AudioInputStream: Handle {
     fn write(&self, buffer: &mut [u8]) -> Result;
 
     /// Close the stream gracefully.
-    fn close(&self) -> Result {
-        hr!(push_audio_input_stream_close(self.handle()))
-    }
+    fn close(&self) -> Result;
 }
 
 pub struct StreamReader {
     receiver: Receiver<Vec<u8>>,
     buffer: Vec<u8>,
     position: usize,
+    closing: bool,
 }
 
 impl StreamReader {
@@ -134,12 +143,17 @@ impl StreamReader {
             receiver,
             buffer: Vec::new(),
             position: 0,
+            closing: false,
         }
     }
 }
 
 impl Read for StreamReader {
     fn read(&mut self, buffer: &mut [u8]) -> IoResult<usize> {
+        if self.closing {
+            return Ok(0);
+        }
+
         let mut buf = buffer;
         let mut read_size = 0;
         let hold_size = self.buffer.len();
@@ -157,6 +171,10 @@ impl Read for StreamReader {
         while buf.len() > 0 {
             match self.receiver.try_recv() {
                 Ok(data) => {
+                    if data.len() == 0 {
+                        self.closing = true;
+                        break;
+                    }
                     let sz = buf.write(&data)?;
                     read_size = read_size + sz;
                     if sz < data.len() {
@@ -181,6 +199,8 @@ impl Read for StreamReader {
             .recv()
             .map_err(|err| IoError::new(ErrorKind::BrokenPipe, err))?;
         self.position = 0;
+
+        self.closing = self.buffer.len() == 0;
         self.read(buf)
     }
 }
@@ -228,12 +248,17 @@ impl AudioInputStream for PullAudioInputStream {
         let buf = buffer.to_owned();
         Ok(self.writer.send(buf)?)
     }
+
+    /// Close the stream gracefully.
+    fn close(&self) -> Result {
+        self.write(&mut [])
+    }
 }
 
 unsafe extern "C" fn on_stream_close(context: *mut c_void) {
     log::debug!("Pull stream close event fired.");
     if !context.is_null() {
-        Box::from_raw(context as *mut Box<StreamReader>);
+        Box::from_raw(context as *mut StreamReader);
     }
 }
 
@@ -242,12 +267,11 @@ unsafe extern "C" fn on_stream_read(
     buffer: *mut u8,
     size: u32,
 ) -> c_int {
-    log::trace!("Pull stream read event fired with buffer {}.", size);
     if context.is_null() {
         log::error!("Unknown context with NULL pointer when read stream.");
         return 0;
     }
-    let mut ctx = Box::from_raw(context as *mut Box<StreamReader>);
+    let mut ctx = Box::from_raw(context as *mut StreamReader);
     let mut buf = from_raw_parts_mut(buffer, size as usize);
     let read_size = match ctx.read(&mut buf) {
         Ok(sz) => sz,
@@ -286,6 +310,11 @@ impl AudioInputStream for PushAudioInputStream {
         let buf = buffer.as_mut_ptr();
         let size = buffer.len();
         hr!(push_audio_input_stream_write(self.handle, buf, size as u32))
+    }
+
+    /// Close the stream gracefully.
+    fn close(&self) -> Result {
+        hr!(push_audio_input_stream_close(self.handle()))
     }
 }
 

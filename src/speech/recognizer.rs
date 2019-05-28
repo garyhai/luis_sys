@@ -1,12 +1,14 @@
 //! Recognizer for speech with intent and translation support.
 
 use super::{
-    audio::AudioInputStream,
+    audio::AudioInput,
     events::{Event, EventResult, Flags, Recognition, Session},
 };
 use crate::{
-    hr, speech_api::*, DeriveHandle, Handle, Result, SmartHandle, SpxError,
-    INVALID_HANDLE,
+    error::{AlreadyExists, Other, SpxError},
+    hr,
+    speech_api::*,
+    DeriveHandle, Handle, Result, SmartHandle, INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -152,7 +154,7 @@ DeriveHandle!(
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     flags: Flags,
-    stream: Option<Box<dyn AudioInputStream>>,
+    audio: AudioInput,
     sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
 }
@@ -161,14 +163,14 @@ impl Recognizer {
     /// Constructor.
     pub fn new(
         handle: SPXRECOHANDLE,
-        stream: Option<Box<dyn AudioInputStream>>,
+        audio: AudioInput,
         flags: Flags,
         timeout: u32,
     ) -> Self {
         Recognizer {
             handle,
             flags,
-            stream,
+            audio,
             timeout,
             sink: None,
         }
@@ -176,14 +178,12 @@ impl Recognizer {
 
     /// Proxy the write function of push stream.
     pub fn write_stream(&self, buffer: &mut [u8]) -> Result {
-        let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
-        stream.write(buffer)
+        self.audio.input(buffer)
     }
 
     /// Close the push stream gracefully.
-    pub fn close_stream(&self) -> Result {
-        let stream = self.stream.as_ref().ok_or(SpxError::NulError)?;
-        stream.close()
+    pub fn close_stream(&mut self) -> Result {
+        self.audio.close()
     }
 
     /// Blocked mode for once recognition.
@@ -230,7 +230,7 @@ impl Recognizer {
     /// Notice: If Flags::Cancled is not set, error message may not be handled; If Flags::Session is not set, stream future may not be resolved.
     pub fn start_flags(&mut self, flags: Flags) -> Result<EventStream> {
         if self.started() {
-            return Err(SpxError::AlreadyExists);
+            return Err(AlreadyExists);
         }
 
         let flags = self.flags | flags;
@@ -389,7 +389,7 @@ impl EventStream {
             if let Ok(evt) = res {
                 evt.into_result()
             } else {
-                Err(SpxError::Unknown(String::from("streaming is interrupted")))
+                Err(Other(String::from("streaming is interrupted")))
             }
         })
     }

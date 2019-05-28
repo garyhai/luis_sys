@@ -142,7 +142,7 @@ impl RecognizerConfig {
 
     /// Generate a simple speech recognizer.
     pub fn recognizer(&self) -> Result<Recognizer> {
-        let mut audio = self.audio_input()?;
+        let audio = self.audio_input()?;
         let mut rh = INVALID_HANDLE;
         hr!(recognizer_create_speech_recognizer_from_config(
             &mut rh,
@@ -151,7 +151,7 @@ impl RecognizerConfig {
         ))?;
         Ok(Recognizer::new(
             rh,
-            audio.take_stream(),
+            audio,
             self.flags | Flags::Speech,
             self.timeout,
         ))
@@ -159,7 +159,7 @@ impl RecognizerConfig {
 
     /// Generate a recognizer with speech and intent recognition.
     pub fn intent_recognizer(&self) -> Result<Recognizer> {
-        let mut audio = self.audio_input()?;
+        let audio = self.audio_input()?;
         let mut rh = INVALID_HANDLE;
         hr!(recognizer_create_intent_recognizer_from_config(
             &mut rh,
@@ -169,7 +169,7 @@ impl RecognizerConfig {
 
         let reco = Recognizer::new(
             rh,
-            audio.take_stream(),
+            audio,
             self.flags | Flags::Intent,
             self.timeout,
         );
@@ -180,7 +180,7 @@ impl RecognizerConfig {
     /// Generate a recognizer with speech and intent recognition.
     pub fn translator(&self) -> Result<Recognizer> {
         self.apply_target_languages()?;
-        let mut audio = self.audio_input()?;
+        let audio = self.audio_input()?;
         let mut rh = INVALID_HANDLE;
         hr!(recognizer_create_translation_recognizer_from_config(
             &mut rh,
@@ -190,7 +190,7 @@ impl RecognizerConfig {
 
         let reco = Recognizer::new(
             rh,
-            audio.take_stream(),
+            audio,
             self.flags | Flags::Translation,
             self.timeout,
         );

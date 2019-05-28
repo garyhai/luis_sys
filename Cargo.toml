@@ -1,6 +1,6 @@
 [package]
 name = "luis_sys"
-version = "0.3.18"
+version = "0.3.19"
 authors = ["Gary Hai <gary@neunit.com>"]
 edition = "2018"
 description = "FFI bindings for Microsoft LUIS API."
@@ -22,6 +22,7 @@ serde_json = "1.0.38"
 
 [dev-dependencies]
 tokio = "0.1.15"
+hound = "3.4.0"
 
 [build-dependencies]
 bindgen = "0.49.1"
