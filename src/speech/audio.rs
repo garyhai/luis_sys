@@ -1,6 +1,5 @@
 //! Represents specific audio configuration, such as microphone, file, or custom audio streams.
-//! 
-//! FIXME: memory leak of StreamReader when callback function on_stream_close is not called by Speech SDK.
+//!
 
 use super::builder::AudioConfig;
 use crate::speech_api::*;
@@ -13,7 +12,10 @@ use std::{
     io::{Error as IoError, ErrorKind, Read, Result as IoResult, Write},
     os::raw::{c_int, c_void},
     slice::from_raw_parts_mut,
-    sync::mpsc::{channel, Receiver, Sender, TryRecvError},
+    sync::{
+        mpsc::{channel, Receiver, Sender, TryRecvError},
+        Arc, Mutex, Weak,
+    },
 };
 
 DeriveHandle!(
@@ -216,6 +218,7 @@ DeriveHandle!(
 pub struct PullAudioInputStream {
     handle: SPXAUDIOSTREAMHANDLE,
     writer: Sender<Vec<u8>>,
+    _reader: Arc<Mutex<StreamReader>>,
 }
 
 impl PullAudioInputStream {
@@ -228,8 +231,9 @@ impl PullAudioInputStream {
             af.handle()
         ))?;
         let (writer, reader) = channel();
-        let reader = Box::new(StreamReader::new(reader));
-        let context = Box::into_raw(reader) as *mut c_void;
+        let _reader = Arc::new(Mutex::new(StreamReader::new(reader)));
+        let r = Box::new(Arc::downgrade(&_reader));
+        let context = Box::into_raw(r) as *mut c_void;
         hr!(pull_audio_input_stream_set_callbacks(
             hstream,
             context,
@@ -239,6 +243,7 @@ impl PullAudioInputStream {
         Ok(PullAudioInputStream {
             handle: hstream,
             writer,
+            _reader,
         })
     }
 }
@@ -258,7 +263,8 @@ impl AudioInputStream for PullAudioInputStream {
 unsafe extern "C" fn on_stream_close(context: *mut c_void) {
     log::debug!("Pull stream close event fired.");
     if !context.is_null() {
-        Box::from_raw(context as *mut StreamReader);
+        // Auto release the Box and weak pointer.
+        Box::from_raw(context as *mut Weak<Mutex<StreamReader>>);
     }
 }
 
@@ -271,18 +277,22 @@ unsafe extern "C" fn on_stream_read(
         log::error!("Unknown context with NULL pointer when read stream.");
         return 0;
     }
-    let mut ctx = Box::from_raw(context as *mut StreamReader);
-    let mut buf = from_raw_parts_mut(buffer, size as usize);
-    let read_size = match ctx.read(&mut buf) {
-        Ok(sz) => sz,
-        Err(err) => {
-            log::error!("Audio input stream read error: {}", err);
-            0
+    let ctx = Box::from_raw(context as *mut Weak<Mutex<StreamReader>>);
+    let ctx = Box::leak(ctx); // avoid auto release.
+    if let Some(r) = ctx.upgrade() {
+        if let Ok(mut reader) = r.lock() {
+            let mut buf = from_raw_parts_mut(buffer, size as usize);
+            return match reader.read(&mut buf) {
+                Ok(sz) => sz,
+                Err(err) => {
+                    log::error!("Audio input stream read error: {}", err);
+                    0
+                }
+            } as c_int;
         }
-    };
-    // Avoid double free, same as std::mem::forget(ctx);
-    Box::into_raw(ctx);
-    read_size as c_int
+    }
+    log::error!("Cannot get stream reader!");
+    return 0;
 }
 
 SmartHandle!(

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.20] - 2019-5-28
+
+### Fixed
+
+- Fix the potential memory leak if Speech SDK does not call `on_stream_close` .
+
 ## [0.3.19] - 2019-5-28
 
 ### Changed

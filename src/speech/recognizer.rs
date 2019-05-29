@@ -246,11 +246,11 @@ impl Recognizer {
         ))?;
 
         let (s, r) = unbounded::<Event>();
-        self.sink = Some(Arc::new(s));
+        let sink = Arc::new(s);
+        self.sink = Some(sink.clone());
         let reception = EventStream::new(r, flags);
 
-        let sink = self.sink.as_mut().unwrap();
-        let sk = Box::new(Arc::downgrade(sink));
+        let sk = Box::new(Arc::downgrade(&sink));
         let context = Box::into_raw(sk) as *mut c_void;
 
         if flags.contains(Flags::Recognizing) {
