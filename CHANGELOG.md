@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.21] - 2019-5-31
+
+### Fixed
+
+- Ensure session of recognizer is stopped.
+
 ## [0.3.20] - 2019-5-28
 
 ### Fixed

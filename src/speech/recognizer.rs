@@ -8,7 +8,7 @@ use crate::{
     error::{AlreadyExists, Other, SpxError},
     hr,
     speech_api::*,
-    DeriveHandle, Handle, Result, SmartHandle, INVALID_HANDLE,
+    Handle, Result, SmartHandle, INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -142,13 +142,6 @@ impl Model {
     }
 }
 
-DeriveHandle!(
-    Recognizer,
-    SPXRECOHANDLE,
-    recognizer_handle_release,
-    recognizer_handle_is_valid
-);
-
 /// In addition to performing speech-to-text recognition, the IntentRecognizer extracts structured information
 /// about the intent of the speaker, which can be used to drive further actions using dedicated intent triggers
 pub struct Recognizer {
@@ -157,6 +150,7 @@ pub struct Recognizer {
     audio: AudioInput,
     sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
+    continuous: bool,
 }
 
 impl Recognizer {
@@ -173,6 +167,7 @@ impl Recognizer {
             audio,
             timeout,
             sink: None,
+            continuous: false,
         }
     }
 
@@ -244,6 +239,7 @@ impl Recognizer {
             h,
             self.timeout,
         ))?;
+        self.continuous = true;
 
         let (s, r) = unbounded::<Event>();
         let sink = Arc::new(s);
@@ -357,6 +353,35 @@ impl Recognizer {
         }
     }
 }
+
+impl Handle<SPXRECOHANDLE> for Recognizer {
+    fn handle(&self) -> SPXRECOHANDLE {
+        self.handle
+    }
+}
+
+/// Drop the handle by underlying destructor.
+impl Drop for Recognizer {
+    fn drop(&mut self) {
+        if self.continuous {
+            if let Err(err) = self.stop() {
+                log::error!("failed to stop stream: {}", err);
+            }
+        }
+
+        unsafe {
+            if !recognizer_handle_is_valid(self.handle) {
+                return;
+            }
+            recognizer_handle_release(self.handle);
+        }
+        log::trace!("{}({}) is released", "Recognizer", self.handle as usize);
+        self.handle = INVALID_HANDLE;
+    }
+}
+
+/// Enable threading operation.
+unsafe impl Send for Recognizer {}
 
 /// Promise of recognition event stream.
 pub struct EventStream {
