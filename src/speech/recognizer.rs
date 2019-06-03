@@ -43,6 +43,29 @@ SmartHandle!(
 );
 
 SmartHandle!(
+    Connection,
+    SPXCONNECTIONHANDLE,
+    connection_handle_release,
+    connection_handle_is_valid
+);
+
+impl Connection {
+    pub fn from_recognizer(reco: &Recognizer) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        hr!(connection_from_recognizer(reco.handle(), &mut handle))?;
+        Ok(Self::new(handle))
+    }
+
+    pub fn open(&self, continuous: bool) -> Result {
+        hr!(connection_open(self.handle, continuous))
+    }
+
+    pub fn close(&self) -> Result {
+        hr!(connection_close(self.handle))
+    }
+}
+
+SmartHandle!(
     RecognizerSession,
     SPXSESSIONHANDLE,
     session_handle_release,
@@ -211,6 +234,7 @@ impl Recognizer {
 
     /// Stop the sesstion.
     pub fn stop(&mut self) -> Result {
+        Connection::from_recognizer(self)?.close()?;
         let mut h = INVALID_HANDLE;
         hr!(recognizer_stop_continuous_recognition_async(
             self.handle,
@@ -305,11 +329,10 @@ impl Recognizer {
             ))?;
         }
 
-        let mut h_conn = INVALID_HANDLE;
-        hr!(connection_from_recognizer(self.handle, &mut h_conn))?;
+        let connection = Connection::from_recognizer(self)?;
         if flags.contains(Flags::Connected) {
             hr!(connection_connected_set_callback(
-                h_conn,
+                connection.handle(),
                 Some(on_connected),
                 context,
             ))?;
@@ -317,12 +340,11 @@ impl Recognizer {
 
         if flags.contains(Flags::Disconnected) {
             hr!(connection_disconnected_set_callback(
-                h_conn,
+                connection.handle(),
                 Some(on_disconnected),
                 context,
             ))?;
         }
-        hr!(connection_handle_release(h_conn))?;
 
         if flags.contains(Flags::Canceled) {
             hr!(recognizer_canceled_set_callback(

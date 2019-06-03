@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.22] - 2019-6-3
+
+### Fixed
+
+- Ensure connection of session is closed when recognizer is dropping.
+
 ## [0.3.21] - 2019-5-31
 
 ### Fixed
