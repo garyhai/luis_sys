@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.23] - 2019-6-10
+
+### Fixed
+
+- Assume that the audio stream should be quantized. Sacrifice efficiency to fix the issue of "invalid audio format".
+
 ## [0.3.22] - 2019-6-3
 
 ### Fixed

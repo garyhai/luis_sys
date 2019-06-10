@@ -9,12 +9,12 @@ use crate::{
 };
 use std::{
     ffi::CString,
-    io::{Error as IoError, ErrorKind, Read, Result as IoResult, Write},
+    io::Write,
     os::raw::{c_int, c_void},
     slice::from_raw_parts_mut,
     sync::{
         mpsc::{channel, Receiver, Sender, TryRecvError},
-        Arc, Mutex, Weak,
+        Arc, Weak,
     },
 };
 
@@ -132,81 +132,6 @@ pub trait AudioInputStream: Handle {
     fn close(&self) -> Result;
 }
 
-pub struct StreamReader {
-    receiver: Receiver<Vec<u8>>,
-    buffer: Vec<u8>,
-    position: usize,
-    closing: bool,
-}
-
-impl StreamReader {
-    pub fn new(receiver: Receiver<Vec<u8>>) -> Self {
-        StreamReader {
-            receiver,
-            buffer: Vec::new(),
-            position: 0,
-            closing: false,
-        }
-    }
-}
-
-impl Read for StreamReader {
-    fn read(&mut self, buffer: &mut [u8]) -> IoResult<usize> {
-        if self.closing {
-            return Ok(0);
-        }
-
-        let mut buf = buffer;
-        let mut read_size = 0;
-        let hold_size = self.buffer.len();
-        if hold_size > 0 {
-            read_size = buf.write(&self.buffer[self.position..])?;
-            let position = read_size + self.position;
-            if position < hold_size {
-                self.position = position;
-            } else {
-                self.buffer = Vec::new();
-                self.position = 0;
-            }
-        }
-
-        while buf.len() > 0 {
-            match self.receiver.try_recv() {
-                Ok(data) => {
-                    if data.len() == 0 {
-                        self.closing = true;
-                        break;
-                    }
-                    let sz = buf.write(&data)?;
-                    read_size = read_size + sz;
-                    if sz < data.len() {
-                        self.buffer = data;
-                        self.position = sz;
-                        break;
-                    }
-                }
-                Err(TryRecvError::Empty) => (),
-                Err(TryRecvError::Disconnected) => {
-                    return Err(IoError::from(ErrorKind::ConnectionAborted))
-                }
-            }
-        }
-
-        if read_size > 0 {
-            return Ok(read_size);
-        }
-
-        self.buffer = self
-            .receiver
-            .recv()
-            .map_err(|err| IoError::new(ErrorKind::BrokenPipe, err))?;
-        self.position = 0;
-
-        self.closing = self.buffer.len() == 0;
-        self.read(buf)
-    }
-}
-
 DeriveHandle!(
     PullAudioInputStream,
     SPXAUDIOSTREAMHANDLE,
@@ -218,7 +143,7 @@ DeriveHandle!(
 pub struct PullAudioInputStream {
     handle: SPXAUDIOSTREAMHANDLE,
     writer: Sender<Vec<u8>>,
-    _reader: Arc<Mutex<StreamReader>>,
+    _reader: Arc<Receiver<Vec<u8>>>,
 }
 
 impl PullAudioInputStream {
@@ -231,7 +156,7 @@ impl PullAudioInputStream {
             af.handle()
         ))?;
         let (writer, reader) = channel();
-        let _reader = Arc::new(Mutex::new(StreamReader::new(reader)));
+        let _reader = Arc::new(reader);
         let r = Box::new(Arc::downgrade(&_reader));
         let context = Box::into_raw(r) as *mut c_void;
         hr!(pull_audio_input_stream_set_callbacks(
@@ -264,7 +189,7 @@ unsafe extern "C" fn on_stream_close(context: *mut c_void) {
     log::debug!("Pull stream close event fired.");
     if !context.is_null() {
         // Auto release the Box and weak pointer.
-        Box::from_raw(context as *mut Weak<Mutex<StreamReader>>);
+        Box::from_raw(context as *mut Weak<Receiver<Vec<u8>>>);
     }
 }
 
@@ -277,19 +202,37 @@ unsafe extern "C" fn on_stream_read(
         log::error!("Unknown context with NULL pointer when read stream.");
         return 0;
     }
-    let ctx = Box::from_raw(context as *mut Weak<Mutex<StreamReader>>);
+    let ctx = Box::from_raw(context as *mut Weak<Receiver<Vec<u8>>>);
     let ctx = Box::leak(ctx); // avoid auto release.
     if let Some(r) = ctx.upgrade() {
-        if let Ok(mut reader) = r.lock() {
-            let mut buf = from_raw_parts_mut(buffer, size as usize);
-            return match reader.read(&mut buf) {
-                Ok(sz) => sz,
+        let mut buf = from_raw_parts_mut(buffer, size as usize);
+        let data = match r.try_recv() {
+            Ok(data) => data,
+            Err(TryRecvError::Empty) => match r.recv() {
+                Ok(data) => data,
                 Err(err) => {
-                    log::error!("Audio input stream read error: {}", err);
-                    0
+                    log::error!("Data read error: {}", err);
+                    return 0;
                 }
-            } as c_int;
-        }
+            },
+            Err(TryRecvError::Disconnected) => {
+                log::error!("Data channel is disconnected!");
+                return 0;
+            }
+        };
+        let sz = data.len();
+        return if sz == 0 {
+            0
+        } else if sz > buf.len() {
+            log::error!(
+                "Read buffer size is too small ({} vs {}) ",
+                sz,
+                buf.len()
+            );
+            0
+        } else {
+            buf.write(&data).unwrap()
+        } as c_int;
     }
     log::error!("Cannot get stream reader!");
     return 0;
