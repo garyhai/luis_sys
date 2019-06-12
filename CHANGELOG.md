@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.24] - 2019-6-12
+
+### Changed
+
+- Public export `properties` module, open more control to application.
+
 ## [0.3.23] - 2019-6-10
 
 ### Fixed

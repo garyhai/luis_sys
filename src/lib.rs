@@ -7,9 +7,9 @@ extern crate bitflags;
 use std::{ffi::CStr, os::raw::c_char};
 
 pub(crate) mod macros;
-pub(crate) mod properties;
 pub(crate) mod speech_api;
 
+pub mod properties;
 pub mod error;
 pub mod speech;
 

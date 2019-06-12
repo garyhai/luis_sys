@@ -1,6 +1,6 @@
 [package]
 name = "luis_sys"
-version = "0.3.23"
+version = "0.3.24"
 authors = ["Gary Hai <gary@neunit.com>"]
 edition = "2018"
 description = "FFI bindings for Microsoft LUIS API."
