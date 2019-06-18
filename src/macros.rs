@@ -3,7 +3,7 @@
 /// A quick and dirty implementation of derive Handle trait.
 #[macro_export]
 macro_rules! DeriveHandle {
-    ( $name:ident, $t:ty, $release:ident $(, $check:ident)? ) => (
+    ( $name:ident, $t:ty $( ,$release:ident , $check:ident)? ) => (
         /// Derive the trait used to get underlying handle value.
         impl crate::Handle<$t> for $name {
             fn handle(&self) -> $t {
@@ -16,7 +16,7 @@ macro_rules! DeriveHandle {
             fn drop(&mut self) {
                 unsafe {
                     $( if !$check(self.handle) { return; } )?
-                    $release(self.handle);
+                    $( $release(self.handle); )?
                 }
                 log::trace!("{}({}) is released",
                     stringify!($name),
@@ -53,7 +53,7 @@ macro_rules! SmartHandle {
                 unsafe { $check(self.handle) }
             }
 
-            /// Decstructor.
+            /// Destructor.
             #[allow(dead_code)]
             pub fn release(&mut self) {
                 if self.is_valid() {

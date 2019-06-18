@@ -1,7 +1,7 @@
 //! Recognizer for speech with intent and translation support.
 
 use super::{
-    audio::AudioInput,
+    audio::{Audio, AudioStream},
     events::{Event, EventResult, Flags, Recognition, Session},
 };
 use crate::{
@@ -170,7 +170,7 @@ impl Model {
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     flags: Flags,
-    audio: AudioInput,
+    audio: Audio,
     sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
     continuous: bool,
@@ -180,7 +180,7 @@ impl Recognizer {
     /// Constructor.
     pub fn new(
         handle: SPXRECOHANDLE,
-        audio: AudioInput,
+        audio: Audio,
         flags: Flags,
         timeout: u32,
     ) -> Self {
@@ -195,8 +195,8 @@ impl Recognizer {
     }
 
     /// Proxy the write function of push stream.
-    pub fn write_stream(&self, buffer: &mut [u8]) -> Result {
-        self.audio.input(buffer)
+    pub fn write_stream(&mut self, buffer: &mut [u8]) -> Result {
+        self.audio.write(buffer)
     }
 
     /// Close the push stream gracefully.
@@ -242,6 +242,7 @@ impl Recognizer {
         ))?;
         let _ = RecognizerAsync::new(h);
         self.sink = None;
+        self.continuous = false;
         Ok(())
     }
 

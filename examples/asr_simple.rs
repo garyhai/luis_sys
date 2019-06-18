@@ -47,7 +47,7 @@ fn recognize_test() -> Result {
     factory
         .set_flags(flags)
         // .set_audio_file_path(WAV_FILE)
-        .set_audio_config(fmt_audio)
+        .set_audio_spec(fmt_audio)
         .set_pull_mode(true)
         // .set_intents(intents)
         .put_language("zh-CN")?;

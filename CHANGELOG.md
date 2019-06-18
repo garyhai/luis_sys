@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2019-6-18
+
+### Changed
+
+- Wrap synthesis functions and increase minor version number.
+- Add Text-To-Speech sample and command in Makefile.
+- `DeriveHandle` release function is optional now.
+- Module `audio` is refactored with many new audio stream types.
+
 ## [0.3.24] - 2019-6-12
 
 ### Changed
