@@ -308,9 +308,16 @@ impl RecognizerConfig {
 
     /// The input language of the speech recognizer.
     DefineProperty!(
-        voice_name,
-        put_voice_name,
+        trans_voice_name,
+        put_trans_voice_name,
         PropertyId_SpeechServiceConnection_TranslationVoice
+    );
+
+    /// The input language of the speech recognizer.
+    DefineProperty!(
+        synth_voice_name,
+        put_synth_voice_name,
+        PropertyId_SpeechServiceConnection_SynthVoice
     );
 
     /// The input language of the speech recognizer.

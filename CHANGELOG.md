@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2019-6-18
+
+### Changed
+
+- Add `synth_voice_name` to RecognizerConfig.
+- Change `voice_name` to `trans_voice_name` for translator voice name.
+
 ## [0.4.0] - 2019-6-18
 
 ### Changed
