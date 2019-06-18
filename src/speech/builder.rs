@@ -376,6 +376,11 @@ impl RecognizerConfig {
 
         Ok(self)
     }
+
+    pub fn put_synth_audio_format(&mut self, mode: u32) -> Result<&mut Self> {
+        hr!(speech_config_set_audio_output_format(self.handle, mode))?;
+        Ok(self)
+    }
 }
 
 FlattenProps!(RecognizerConfig);

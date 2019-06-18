@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2019-6-18
+
+### Added
+
+- Add synthesis audio format configuration.
+
+
 ## [0.4.1] - 2019-6-18
 
 ### Changed
