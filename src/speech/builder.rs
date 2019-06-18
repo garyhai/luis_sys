@@ -1,9 +1,10 @@
 //! Configurator and builder for speech or intent recognition.
 
 use super::{
-    audio::AudioInput,
+    audio::{Audio, AudioSpec},
     events::Flags,
     recognizer::{IntentTrigger, Model, Recognizer},
+    synthesizer::*,
 };
 use crate::{
     hr,
@@ -64,7 +65,7 @@ DeriveHandle!(
 /// Configurator.
 pub struct RecognizerConfig {
     flags: Flags,
-    audio: Option<AudioConfig>,
+    audio_spec: Option<AudioSpec>,
     audio_file_path: String,
     pull_mode: bool,
     model_id: String,
@@ -83,7 +84,7 @@ impl RecognizerConfig {
             handle,
             props: Properties::new(hprops),
             flags: Flags::Recognized,
-            audio: None,
+            audio_spec: None,
             audio_file_path: String::new(),
             pull_mode: false,
             model_id: String::new(),
@@ -157,6 +158,18 @@ impl RecognizerConfig {
         ))
     }
 
+    /// Generate a simple speech recognizer.
+    pub fn synthesizer(&self) -> Result<Synthesizer> {
+        let audio = self.audio_output()?;
+        let mut sh = INVALID_HANDLE;
+        hr!(synthesizer_create_speech_synthesizer_from_config(
+            &mut sh,
+            self.handle,
+            audio.handle(),
+        ))?;
+        Synthesizer::new(sh, audio, self.flags | Flags::Synthesis)
+    }
+
     /// Generate a recognizer with speech and intent recognition.
     pub fn intent_recognizer(&self) -> Result<Recognizer> {
         let audio = self.audio_input()?;
@@ -198,27 +211,39 @@ impl RecognizerConfig {
     }
 
     /// Create audio input object.
-    pub fn audio_input(&self) -> Result<AudioInput> {
+    pub fn audio_input(&self) -> Result<Audio> {
         if !self.audio_file_path.is_empty() {
-            AudioInput::from_wav_file(&self.audio_file_path)
-        } else if let Some(ref cfg) = self.audio {
-            AudioInput::from_config(cfg, self.pull_mode)
+            Audio::create_input_from_wav_file(&self.audio_file_path)
+        } else if let Some(ref cfg) = self.audio_spec {
+            if self.pull_mode {
+                Audio::create_pull_input(cfg)
+            } else {
+                Audio::create_push_input(cfg)
+            }
         } else {
-            AudioInput::from_microphone()
+            Audio::create_input_from_microphone()
+        }
+    }
+
+    /// Create audio output object.
+    pub fn audio_output(&self) -> Result<Audio> {
+        if !self.audio_file_path.is_empty() {
+            Audio::create_output_to_file(&self.audio_file_path)
+        } else if let Some(ref cfg) = self.audio_spec {
+            Audio::create_output(cfg)
+        } else {
+            Audio::create_output_to_speaker()
         }
     }
 
     /// Get auido input configration. Return None if input of microphone.
-    pub fn audio_config(&self) -> Option<AudioConfig> {
-        self.audio
+    pub fn audio_spec(&self) -> Option<AudioSpec> {
+        self.audio_spec
     }
 
     /// Set audio input configuration. Type of T should be tuple(rate, bits, channels) or AudioConfig.
-    pub fn set_audio_config<T: Into<AudioConfig>>(
-        &mut self,
-        v: T,
-    ) -> &mut Self {
-        self.audio = Some(v.into());
+    pub fn set_audio_spec<T: Into<AudioSpec>>(&mut self, v: T) -> &mut Self {
+        self.audio_spec = Some(v.into());
         self
     }
 
@@ -302,6 +327,13 @@ impl RecognizerConfig {
         PropertyId_SpeechServiceConnection_RecoLanguage
     );
 
+    /// The input language of the speech recognizer.
+    DefineProperty!(
+        synth_language,
+        put_synth_language,
+        PropertyId_SpeechServiceConnection_SynthLanguage
+    );
+
     /// The endpoint ID of the speech recognizer.
     DefineProperty!(
         endpoint,
@@ -340,35 +372,6 @@ impl RecognizerConfig {
 }
 
 FlattenProps!(RecognizerConfig);
-
-/// Creates an audio stream format object with the specified PCM waveformat characteristics.
-/// Currently, only WAV / PCM with 16-bit samples, 16 kHz sample rate, and a single channel (Mono) is supported.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
-pub struct AudioConfig {
-    pub rate: u32,
-    pub bits: u8,
-    pub channels: u8,
-}
-
-impl Default for AudioConfig {
-    fn default() -> Self {
-        AudioConfig {
-            rate: 16_000,
-            bits: 16,
-            channels: 1,
-        }
-    }
-}
-
-impl From<(u32, u8, u8)> for AudioConfig {
-    fn from(trio: (u32, u8, u8)) -> Self {
-        AudioConfig {
-            rate: trio.0,
-            bits: trio.1,
-            channels: trio.2,
-        }
-    }
-}
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ProxyConfig {

@@ -17,24 +17,28 @@ const SPXERR_BUFFER_TOO_SMALL: usize = 0x019;
 bitflags! {
     #[derive(Default, Deserialize)]
     pub struct Flags: u64 {
-        const Connected = 0b0001;
-        const Disconnected = 0b0010;
-        const Connection = 0b0011;
-        const SessionStarted = 0b0100;
-        const SessionStopped = 0b1000;
-        const Session = 0b1100;
-        const SpeechStartDetected = 0b0001_0000;
-        const SpeechEndDetected = 0b0010_0000;
-        const SpeechDetection = 0b0011_0000;
-        const Recognizing = 0b0100_0000;
-        const Recognized = 0b1000_0000;
-        const Recognition = 0b1100_0000;
-        const Speech = 0b0001_0000_0000;
-        const Intent = 0b0010_0000_0000;
-        const Translation = 0b0100_0000_0000;
-        const Synthesis = 0b1000_0000_0000;
-        const Canceled = 0b0001_0000_0000_0000;
-        const NoMatch = 0b0010_0000_0000_0000;
+        const Connected =                       0b0001;
+        const Disconnected =                    0b0010;
+        const Connection =                      0b0011;
+        const SessionStarted =                  0b0100;
+        const SessionStopped =                  0b1000;
+        const Session =                         0b1100;
+        const SpeechStartDetected =        0b0001_0000;
+        const SpeechEndDetected =          0b0010_0000;
+        const SpeechDetection =            0b0011_0000;
+        const Recognizing =                0b0100_0000;
+        const Recognized =                 0b1000_0000;
+        const Recognition =                0b1100_0000;
+        const Speech =                0b0001_0000_0000;
+        const Intent =                0b0010_0000_0000;
+        const Translation =           0b0100_0000_0000;
+        const Synthesis =        0b0000_1000_0000_0000;
+        const Synthesizing =     0b0001_0000_0000_0000;
+        const Synthesized =      0b0010_0000_0000_0000;
+        const SynthesisStart =   0b0100_0000_0000_0000;
+        const SynthesisEvent =   0b0111_0000_0000_0000;
+        const Canceled =    0b0100_0000_0000_0000_0000;
+        const NoMatch =     0b1000_0000_0000_0000_0000;
     }
 }
 
@@ -74,10 +78,13 @@ impl From<Result_Reason> for Flags {
                 Flags::Recognized | Flags::Translation
             }
             Result_Reason_ResultReason_SynthesizingAudio => {
-                Flags::Recognizing | Flags::Synthesis
+                Flags::Synthesizing | Flags::Synthesis
+            }
+            Result_Reason_ResultReason_SynthesizingAudioStart => {
+                Flags::SynthesisStart | Flags::Synthesis
             }
             Result_Reason_ResultReason_SynthesizingAudioComplete => {
-                Flags::Recognized | Flags::Synthesis
+                Flags::Synthesized | Flags::Synthesis
             }
             _ => {
                 log::error!("Unknown reason to convert Flags!");
@@ -268,6 +275,41 @@ impl Event {
                 unsafe { buf.set_len(sz) };
                 er.synthesis_data(&mut buf)?;
                 r.synthesis = Some(buf);
+            }
+        }
+
+        Ok(r)
+    }
+
+    /// Yield the output of event.
+    pub fn into_synth_result(self) -> Result<Synthesis> {
+        let mut r = Synthesis::default();
+        let flag = self.flag;
+        r.flag = flag;
+
+        let es = SynthEventResult::from_event(self)?;
+        r.id = es.id()?;
+        let reason = es.reason();
+        r.reason = reason;
+
+        if reason.intersects(Flags::Canceled) {
+            if es.code()?
+                == Result_CancellationErrorCode_CancellationErrorCode_NoError
+            {
+                return Ok(r);
+            } else {
+                return es.cancellation_error();
+            }
+        }
+
+        if reason.intersects(Flags::Synthesized | Flags::Synthesizing) {
+            let sz = es.audio_data_length()? as usize;
+            if sz != 0 {
+                let mut buf = Vec::with_capacity(sz);
+                unsafe { buf.set_len(sz) };
+                es.audio_data(&mut buf)?;
+                r.audio_data = buf;
+                r.audio_length = sz;
             }
         }
 
@@ -553,3 +595,114 @@ pub trait NoMatchResult: AsrResult {
         Err(NoMatchError { reason }.into())
     }
 }
+
+DeriveHandle!(
+    SynthEventResult,
+    SPXRESULTHANDLE,
+    synthesizer_result_handle_release,
+    synthesizer_result_handle_is_valid
+);
+
+/// Event may produce result or error.
+pub struct SynthEventResult {
+    reason: Flags,
+    handle: SPXRESULTHANDLE,
+    props: Properties,
+}
+
+impl SynthEventResult {
+    /// Create result with event source flag, then patch the flag with reason.
+    pub fn new(flag: Flags, handle: SPXRESULTHANDLE) -> Result<Self> {
+        let mut reason: Result_Reason = 0;
+        hr!(synth_result_get_reason(handle, &mut reason))?;
+        let reason = flag | Flags::from(reason);
+
+        let mut hprops = INVALID_HANDLE;
+        hr!(synth_result_get_property_bag(handle, &mut hprops))?;
+        let props = Properties::new(hprops);
+        Ok(SynthEventResult {
+            reason,
+            handle,
+            props,
+        })
+    }
+
+    /// Consume the Event and create its result.
+    pub fn from_event(evt: Event) -> Result<Self> {
+        let mut handle = INVALID_HANDLE;
+        hr!(synthesizer_synthesis_event_get_result(
+            evt.handle(),
+            &mut handle
+        ))?;
+        SynthEventResult::new(evt.flag(), handle)
+    }
+
+    /// Check the length of synthesised voice data length for allocation of buffer.
+    pub fn audio_data_length(&self) -> Result<u32> {
+        let mut length = 0;
+        hr!(synth_result_get_audio_length(self.handle(), &mut length))?;
+        Ok(length)
+    }
+
+    /// Retrieve the synthesis data from internal buffer by copy data to given buffer.
+    pub fn audio_data(&self, buf: &mut [u8]) -> Result {
+        let mut length = 0;
+        let buf_ptr = buf.as_mut_ptr();
+        hr!(synth_result_get_audio_data(
+            self.handle(),
+            buf_ptr,
+            buf.len() as u32,
+            &mut length
+        ))
+    }
+
+    /// Simple way to fetch synthesis data.
+    pub fn audio_clip(&self) -> Result<Vec<u8>> {
+        let length = self.audio_data_length()? as usize;
+        let mut buf = vec![0; length];
+        self.audio_data(&mut buf)?;
+        Ok(buf)
+    }
+
+}
+
+FlattenProps!(SynthEventResult);
+
+impl AsrResult for SynthEventResult {
+    /// Unique result id.
+    fn id(&self) -> Result<String> {
+        get_cf_string(synth_result_get_result_id, self.handle(), 40)
+    }
+
+    fn reason(&self) -> Flags {
+        self.reason
+    }
+}
+
+impl CancellationResult for SynthEventResult {
+    /// The reason the result was canceled.
+    fn cancellation_reason(&self) -> Result<Result_CancellationReason> {
+        let mut n = 0 as Result_CancellationReason;
+        hr!(synth_result_get_reason_canceled(self.handle(), &mut n))?;
+        Ok(n)
+    }
+
+    /// The error code in case of an unsuccessful recognition. If Reason is not Error, ErrorCode is set to NoError.
+    fn code(&self) -> Result<Result_CancellationErrorCode> {
+        let mut n = 0 as Result_CancellationErrorCode;
+        hr!(synth_result_get_canceled_error_code(self.handle(), &mut n))?;
+        Ok(n)
+    }
+}
+
+/// Output of recognition
+#[derive(Debug, Default, Serialize)]
+pub struct Synthesis {
+    pub flag: Flags,
+    pub id: String,
+    pub reason: Flags,
+    pub audio_length: usize,
+    pub audio_data: Vec<u8>,
+}
+
+impl ToJson for Synthesis {}

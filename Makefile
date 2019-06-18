@@ -27,6 +27,9 @@ release:
 run: build
 	DYLD_FRAMEWORK_PATH="SpeechSDK/macos" cargo run --example asr_simple
 
+run-tts: build
+	DYLD_FRAMEWORK_PATH="SpeechSDK/macos" cargo run --example tts_simple
+
 skeptic:
 	USE_SKEPTIC=1 cargo test $(CARGO_FLAGS)
 

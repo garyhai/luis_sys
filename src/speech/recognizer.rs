@@ -1,14 +1,14 @@
 //! Recognizer for speech with intent and translation support.
 
 use super::{
-    audio::AudioInput,
+    audio::{Audio, AudioStream},
     events::{Event, EventResult, Flags, Recognition, Session},
 };
 use crate::{
     error::{AlreadyExists, Other, SpxError},
     hr,
     speech_api::*,
-    DeriveHandle, Handle, Result, SmartHandle, INVALID_HANDLE,
+    Handle, Result, SmartHandle, INVALID_HANDLE,
 };
 use futures::{
     sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -142,28 +142,22 @@ impl Model {
     }
 }
 
-DeriveHandle!(
-    Recognizer,
-    SPXRECOHANDLE,
-    recognizer_handle_release,
-    recognizer_handle_is_valid
-);
-
 /// In addition to performing speech-to-text recognition, the IntentRecognizer extracts structured information
 /// about the intent of the speaker, which can be used to drive further actions using dedicated intent triggers
 pub struct Recognizer {
     handle: SPXRECOHANDLE,
     flags: Flags,
-    audio: AudioInput,
+    audio: Audio,
     sink: Option<Arc<UnboundedSender<Event>>>,
     timeout: u32,
+    continuous: bool,
 }
 
 impl Recognizer {
     /// Constructor.
     pub fn new(
         handle: SPXRECOHANDLE,
-        audio: AudioInput,
+        audio: Audio,
         flags: Flags,
         timeout: u32,
     ) -> Self {
@@ -173,12 +167,13 @@ impl Recognizer {
             audio,
             timeout,
             sink: None,
+            continuous: false,
         }
     }
 
     /// Proxy the write function of push stream.
-    pub fn write_stream(&self, buffer: &mut [u8]) -> Result {
-        self.audio.input(buffer)
+    pub fn write_stream(&mut self, buffer: &mut [u8]) -> Result {
+        self.audio.write(buffer)
     }
 
     /// Close the push stream gracefully.
@@ -223,6 +218,7 @@ impl Recognizer {
         ))?;
         let _ = RecognizerAsync::new(h);
         self.sink = None;
+        self.continuous = false;
         Ok(())
     }
 
@@ -244,6 +240,7 @@ impl Recognizer {
             h,
             self.timeout,
         ))?;
+        self.continuous = true;
 
         let (s, r) = unbounded::<Event>();
         let sink = Arc::new(s);
@@ -357,6 +354,34 @@ impl Recognizer {
         }
     }
 }
+
+impl Handle<SPXRECOHANDLE> for Recognizer {
+    fn handle(&self) -> SPXRECOHANDLE {
+        self.handle
+    }
+}
+
+/// Drop the handle by underlying destructor.
+impl Drop for Recognizer {
+    fn drop(&mut self) {
+        if self.continuous {
+            if let Err(err) = self.stop() {
+                log::error!("failed to stop stream: {}", err);
+            }
+        }
+        unsafe {
+            if !recognizer_handle_is_valid(self.handle) {
+                return;
+            }
+            recognizer_handle_release(self.handle);
+        }
+        log::trace!("{}({}) is released", "Recognizer", self.handle as usize);
+        self.handle = INVALID_HANDLE;
+    }
+}
+
+/// Enable threading operation.
+unsafe impl Send for Recognizer {}
 
 /// Promise of recognition event stream.
 pub struct EventStream {
