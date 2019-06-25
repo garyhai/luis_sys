@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.4.3] - 2019-6-25
+
+### Added
+
+- Mark Sync for thread share of resource handle.
+
 ## [0.4.2] - 2019-6-18
 
 ### Added

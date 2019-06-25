@@ -27,6 +27,7 @@ macro_rules! DeriveHandle {
 
         /// Enable threading operation.
         unsafe impl Send for $name {}
+        unsafe impl Sync for $name {}
     )
 }
 
