@@ -25,10 +25,8 @@ fn main() {
 fn synthesis_test() -> Result {
     let flags = Flags::SynthesisEvent | Flags::Synthesis | Flags::Canceled;
 
-    let mut factory = RecognizerConfig::from_subscription(
-        "YourSubscriptionKey",
-        "Region",
-    )?;
+    let mut factory =
+        RecognizerConfig::from_subscription("YourSubscriptionKey", "Region")?;
 
     factory
         .set_flags(flags)
@@ -69,7 +67,10 @@ fn synthesis_stream(factory: &RecognizerConfig) -> Result {
             // let length = res.audio_data_length().unwrap();
             // info!("result: {:?}: {:?}", res.reason(), length);
             let res = msg.into_synth_result().unwrap();
-            info!("result: {:?} with audio data {}", res.flag, res.audio_length);
+            info!(
+                "result: {:?} with audio data {}",
+                res.flag, res.audio_length
+            );
             Ok(())
         });
     synth.start_synthesize(TEXT)?;

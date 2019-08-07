@@ -663,7 +663,6 @@ impl SynthEventResult {
         self.audio_data(&mut buf)?;
         Ok(buf)
     }
-
 }
 
 FlattenProps!(SynthEventResult);

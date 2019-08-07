@@ -39,10 +39,8 @@ fn recognize_test() -> Result {
         | Flags::Connection
         | Flags::Canceled;
 
-    let mut factory = RecognizerConfig::from_subscription(
-        "YourSubscriptionKey",
-        "Region",
-    )?;
+    let mut factory =
+        RecognizerConfig::from_subscription("YourSubscriptionKey", "Region")?;
 
     factory
         .set_flags(flags)

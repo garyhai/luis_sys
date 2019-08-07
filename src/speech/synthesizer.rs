@@ -23,7 +23,6 @@ use crate::{
         SPXSYNTHHANDLE,
     },
     DeriveHandle, FlattenProps, Result, SmartHandle, INVALID_HANDLE,
-
 };
 
 use futures::{
@@ -32,7 +31,8 @@ use futures::{
 };
 
 use std::{
-    os::raw::{c_char, c_void},
+    ffi::CString,
+    os::raw::c_void,
     sync::{Arc, Weak},
 };
 
@@ -75,7 +75,6 @@ pub struct Synthesizer {
 }
 FlattenProps!(Synthesizer);
 
-
 impl Synthesizer {
     /// Constructor.
     pub fn new(
@@ -94,14 +93,15 @@ impl Synthesizer {
         })
     }
 
-    /// Execute the speech synthesis on plain text, synchronously.
+    /// Execute the speech synthesis on plain text, asynchronously.
     pub fn synthesize(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
         hr!(synthesizer_speak_text_async(
             self.handle,
             txt,
-            text.len() as u32,
+            txt_len,
             &mut hasync
         ))?;
         SynthesizerAsync::new(hasync);
@@ -111,39 +111,42 @@ impl Synthesizer {
     /// Execute the speech synthesis on SSML, synchronously.
     pub fn ssml_synthesis(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
         hr!(synthesizer_speak_ssml_async(
             self.handle,
             txt,
-            text.len() as u32,
+            txt_len,
             &mut hasync
         ))?;
         SynthesizerAsync::new(hasync);
         Ok(())
     }
 
-    /// Execute the speech synthesis on plain text, synchronously.
+    /// Execute the speech synthesis on plain text, asynchronously.
     pub fn start_synthesize(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
         hr!(synthesizer_start_speaking_text_async(
             self.handle,
             txt,
-            text.len() as u32,
+            txt_len,
             &mut hasync
         ))?;
         SynthesizerAsync::new(hasync);
         Ok(())
     }
 
-    /// Execute the speech synthesis on SSML, synchronously.
+    /// Execute the speech synthesis on SSML, asynchronously.
     pub fn start_ssml_synthesis(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
         hr!(synthesizer_start_speaking_ssml_async(
             self.handle,
             txt,
-            text.len() as u32,
+            txt_len,
             &mut hasync
         ))?;
         SynthesizerAsync::new(hasync);
@@ -153,13 +156,9 @@ impl Synthesizer {
     /// Execute the speech synthesis on plain text, synchronously.
     pub fn synthesis_once(&mut self, text: &str) -> Result<SynthEventResult> {
         let mut hres = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
-        hr!(synthesizer_speak_text(
-            self.handle,
-            txt,
-            text.len() as u32,
-            &mut hres
-        ))?;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
+        hr!(synthesizer_speak_text(self.handle, txt, txt_len, &mut hres))?;
         SynthEventResult::new(Flags::empty(), hres)
     }
 
@@ -169,13 +168,9 @@ impl Synthesizer {
         text: &str,
     ) -> Result<SynthEventResult> {
         let mut hres = INVALID_HANDLE;
-        let txt = text.as_ptr() as *const c_char;
-        hr!(synthesizer_speak_ssml(
-            self.handle,
-            txt,
-            text.len() as u32,
-            &mut hres
-        ))?;
+        let txt_len = text.len() as u32;
+        let txt = CString::new(text)?.as_ptr();
+        hr!(synthesizer_speak_ssml(self.handle, txt, txt_len, &mut hres))?;
         SynthEventResult::new(Flags::empty(), hres)
     }
 

@@ -178,7 +178,6 @@ impl Audio {
         audio.stream = Some(stream);
         Ok(audio)
     }
-
 }
 
 FlattenProps!(Audio);

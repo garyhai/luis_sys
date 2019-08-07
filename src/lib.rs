@@ -9,8 +9,8 @@ use std::{ffi::CStr, os::raw::c_char};
 pub(crate) mod macros;
 pub(crate) mod speech_api;
 
-pub mod properties;
 pub mod error;
+pub mod properties;
 pub mod speech;
 
 /// Common error type of the crate.

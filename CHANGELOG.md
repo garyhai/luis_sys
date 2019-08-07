@@ -1,6 +1,8 @@
 # CHANGELOG
 
-## [Unreleased]
+## [0.4.4] - 2019-8-7
+
+- Fix unsafe convertion of `str` to `*const c_char`.
 
 ## [0.4.3] - 2019-6-25
 
