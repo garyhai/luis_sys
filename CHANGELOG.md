@@ -1,7 +1,14 @@
 # CHANGELOG
 
+## [0.4.5] - 2019-8-7
+
+### Fixed
+- Fix bugs of dangling pointer when convert from `CString` to `c_char`.
+
+
 ## [0.4.4] - 2019-8-7
 
+### Fixed
 - Fix unsafe convertion of `str` to `*const c_char`.
 
 ## [0.4.3] - 2019-6-25

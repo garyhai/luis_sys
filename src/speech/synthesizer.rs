@@ -97,10 +97,10 @@ impl Synthesizer {
     pub fn synthesize(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
+        let txt = CString::new(text)?;
         hr!(synthesizer_speak_text_async(
             self.handle,
-            txt,
+            txt.as_ptr(),
             txt_len,
             &mut hasync
         ))?;
@@ -112,10 +112,10 @@ impl Synthesizer {
     pub fn ssml_synthesis(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
+        let txt = CString::new(text)?;
         hr!(synthesizer_speak_ssml_async(
             self.handle,
-            txt,
+            txt.as_ptr(),
             txt_len,
             &mut hasync
         ))?;
@@ -127,10 +127,10 @@ impl Synthesizer {
     pub fn start_synthesize(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
+        let txt = CString::new(text)?;
         hr!(synthesizer_start_speaking_text_async(
             self.handle,
-            txt,
+            txt.as_ptr(),
             txt_len,
             &mut hasync
         ))?;
@@ -142,10 +142,10 @@ impl Synthesizer {
     pub fn start_ssml_synthesis(&mut self, text: &str) -> Result {
         let mut hasync = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
+        let txt = CString::new(text)?;
         hr!(synthesizer_start_speaking_ssml_async(
             self.handle,
-            txt,
+            txt.as_ptr(),
             txt_len,
             &mut hasync
         ))?;
@@ -157,8 +157,13 @@ impl Synthesizer {
     pub fn synthesis_once(&mut self, text: &str) -> Result<SynthEventResult> {
         let mut hres = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
-        hr!(synthesizer_speak_text(self.handle, txt, txt_len, &mut hres))?;
+        let txt = CString::new(text)?;
+        hr!(synthesizer_speak_text(
+            self.handle,
+            txt.as_ptr(),
+            txt_len,
+            &mut hres
+        ))?;
         SynthEventResult::new(Flags::empty(), hres)
     }
 
@@ -169,8 +174,13 @@ impl Synthesizer {
     ) -> Result<SynthEventResult> {
         let mut hres = INVALID_HANDLE;
         let txt_len = text.len() as u32;
-        let txt = CString::new(text)?.as_ptr();
-        hr!(synthesizer_speak_ssml(self.handle, txt, txt_len, &mut hres))?;
+        let txt = CString::new(text)?;
+        hr!(synthesizer_speak_ssml(
+            self.handle,
+            txt.as_ptr(),
+            txt_len,
+            &mut hres
+        ))?;
         SynthEventResult::new(Flags::empty(), hres)
     }
 
